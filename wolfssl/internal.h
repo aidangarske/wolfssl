@@ -6784,6 +6784,8 @@ void* wolfssl_sk_pop_type(WOLFSSL_STACK* sk, WOLF_STACK_TYPE type);
 WOLFSSL_STACK* wolfssl_sk_new_type(WOLF_STACK_TYPE type);
 #endif
 
+/* Aidan's test code comment */
+
 #ifdef __cplusplus
     }  /* extern "C" */
 #endif
