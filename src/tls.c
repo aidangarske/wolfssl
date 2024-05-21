@@ -300,6 +300,98 @@ ProtocolVersion MakeTLSv1_3(void)
 }
 #endif
 
+#if defined(HAVE_SUPPORTED_CURVES)
+/* Sets the key exchange groups in rank order on a context.
+ *
+ * ctx     SSL/TLS context object.
+ * groups  Array of groups.
+ * count   Number of groups in array.
+ * returns BAD_FUNC_ARG when ctx or groups is NULL, not using TLS v1.3 or
+ * count is greater than WOLFSSL_MAX_GROUP_COUNT and WOLFSSL_SUCCESS on success.
+ */
+int wolfSSL_CTX_set_groups(WOLFSSL_CTX* ctx, int* groups, int count)
+{
+    int ret, i;
+
+    WOLFSSL_ENTER("wolfSSL_CTX_set_groups");
+    if (ctx == NULL || groups == NULL || count > WOLFSSL_MAX_GROUP_COUNT)
+        return BAD_FUNC_ARG;
+    if (!IsTLS_ex(ctx->method->version))
+        return BAD_FUNC_ARG;
+
+    #ifdef WOLFSSL_TLS13
+    ctx->numGroups = 0;
+    #endif
+    #if !defined(NO_TLS)
+    TLSX_Remove(&ctx->extensions, TLSX_SUPPORTED_GROUPS, ctx->heap);
+    #endif /* !NO_TLS */
+    for (i = 0; i < count; i++) {
+        /* Call to wolfSSL_CTX_UseSupportedCurve also checks if input groups
+         * are valid */
+        if ((ret = wolfSSL_CTX_UseSupportedCurve(ctx, (word16)groups[i]))
+                != WOLFSSL_SUCCESS) {
+    #if !defined(NO_TLS)
+            TLSX_Remove(&ctx->extensions, TLSX_SUPPORTED_GROUPS, ctx->heap);
+    #endif /* !NO_TLS */
+            return ret;
+        }
+        #ifdef WOLFSSL_TLS13
+        ctx->group[i] = (word16)groups[i];
+        #endif
+    }
+    #ifdef WOLFSSL_TLS13
+    ctx->numGroups = (byte)count;
+    #endif
+
+    return WOLFSSL_SUCCESS;
+}
+
+/* Sets the key exchange groups in rank order.
+ *
+ * ssl     SSL/TLS object.
+ * groups  Array of groups.
+ * count   Number of groups in array.
+ * returns BAD_FUNC_ARG when ssl or groups is NULL, not using TLS v1.3 or
+ * count is greater than WOLFSSL_MAX_GROUP_COUNT and WOLFSSL_SUCCESS on success.
+ */
+int wolfSSL_set_groups(WOLFSSL* ssl, int* groups, int count)
+{
+    int ret, i;
+
+    WOLFSSL_ENTER("wolfSSL_set_groups");
+    if (ssl == NULL || groups == NULL || count > WOLFSSL_MAX_GROUP_COUNT)
+        return BAD_FUNC_ARG;
+    if (!IsTLS_ex(ssl->version))
+        return BAD_FUNC_ARG;
+
+    #ifdef WOLFSSL_TLS13
+    ssl->numGroups = 0;
+    #endif
+    #if !defined(NO_TLS)
+    TLSX_Remove(&ssl->extensions, TLSX_SUPPORTED_GROUPS, ssl->heap);
+    #endif /* !NO_TLS */
+    for (i = 0; i < count; i++) {
+        /* Call to wolfSSL_UseSupportedCurve also checks if input groups
+                 * are valid */
+        if ((ret = wolfSSL_UseSupportedCurve(ssl, (word16)groups[i]))
+                != WOLFSSL_SUCCESS) {
+    #if !defined(NO_TLS)
+            TLSX_Remove(&ssl->extensions, TLSX_SUPPORTED_GROUPS, ssl->heap);
+    #endif /* !NO_TLS */
+            return ret;
+        }
+        #ifdef WOLFSSL_TLS13
+        ssl->group[i] = (word16)groups[i];
+        #endif
+    }
+    #ifdef WOLFSSL_TLS13
+    ssl->numGroups = (byte)count;
+    #endif
+
+    return WOLFSSL_SUCCESS;
+}
+#endif /* HAVE_SUPPORTED_CURVES */
+
 #ifndef WOLFSSL_NO_TLS12
 
 #ifdef HAVE_EXTENDED_MASTER
@@ -398,7 +490,7 @@ int DeriveTlsKeys(WOLFSSL* ssl)
         }
         if (!ssl->ctx->GenSessionKeyCb || ret == PROTOCOLCB_UNAVAILABLE)
 #endif
-        ret = _DeriveTlsKeys(key_dig, key_dig_len,
+        ret = _DeriveTlsKeys(key_dig, (word32)key_dig_len,
                          ssl->arrays->masterSecret, SECRET_LEN,
                          ssl->arrays->serverRandom, ssl->arrays->clientRandom,
                          IsAtLeastTLSv1_2(ssl), ssl->specs.mac_algorithm,
@@ -797,10 +889,10 @@ static int Hmac_OuterHash(Hmac* hmac, unsigned char* mac)
     }
     if (ret == 0) {
         ret = wc_HashUpdate(&hash, hashType, (byte*)hmac->opad,
-            blockSz);
+            (word32)blockSz);
         if (ret == 0)
             ret = wc_HashUpdate(&hash, hashType, (byte*)hmac->innerHash,
-                digestSz);
+                (word32)digestSz);
         if (ret == 0)
             ret = wc_HashFinal(&hash, hashType, mac);
         wc_HashFree(&hash, hashType);
@@ -908,7 +1000,7 @@ static int Hmac_UpdateFinal_CT(Hmac* hmac, byte* digest, const byte* in,
     c32toa(realLen >> ((sizeof(word32) * 8) - 3), lenBytes);
     c32toa(realLen << 3, lenBytes + sizeof(word32));
 
-    ret = Hmac_HashUpdate(hmac, (unsigned char*)hmac->ipad, blockSz);
+    ret = Hmac_HashUpdate(hmac, (unsigned char*)hmac->ipad, (word32)blockSz);
     if (ret != 0)
         return ret;
 
@@ -927,7 +1019,7 @@ static int Hmac_UpdateFinal_CT(Hmac* hmac, byte* digest, const byte* in,
         safeBlocks = 0;
 
     XMEMSET(digest, 0, macLen);
-    k = safeBlocks * blockSz;
+    k = (unsigned int)(safeBlocks * blockSz);
     for (i = safeBlocks; i < blocks; i++) {
         unsigned char hashBlock[WC_MAX_BLOCK_SIZE];
         unsigned char isEocBlock = ctMaskEq(i, eocBlock);
@@ -955,7 +1047,7 @@ static int Hmac_UpdateFinal_CT(Hmac* hmac, byte* digest, const byte* in,
             hashBlock[j] = b;
         }
 
-        ret = Hmac_HashUpdate(hmac, hashBlock, blockSz);
+        ret = Hmac_HashUpdate(hmac, hashBlock, (word32)blockSz);
         if (ret != 0)
             return ret;
         ret = Hmac_HashFinalRaw(hmac, hashBlock);
@@ -1065,9 +1157,9 @@ static int Hmac_UpdateFinal(Hmac* hmac, byte* digest, const byte* in,
     maxSz &= ~(0 - (maxSz >> 31));
 
     /* Calculate #blocks processed in HMAC for max and real data. */
-    blocks      = maxSz >> blockBits;
+    blocks      = (int)(maxSz >> blockBits);
     blocks     += ((maxSz + padSz) % blockSz) < padSz;
-    msgBlocks   = realSz >> blockBits;
+    msgBlocks   = (int)(realSz >> blockBits);
     /* #Extra blocks to process. */
     blocks -= msgBlocks + ((((realSz + padSz) % blockSz) < padSz) ? 1 : 0);
     /* Calculate whole blocks. */
@@ -1076,8 +1168,8 @@ static int Hmac_UpdateFinal(Hmac* hmac, byte* digest, const byte* in,
     ret = wc_HmacUpdate(hmac, header, WOLFSSL_TLS_HMAC_INNER_SZ);
     if (ret == 0) {
         /* Fill the rest of the block with any available data. */
-        word32 currSz = ctMaskLT(msgSz, blockSz) & msgSz;
-        currSz |= ctMaskGTE(msgSz, blockSz) & blockSz;
+        word32 currSz = ctMaskLT((int)msgSz, blockSz) & msgSz;
+        currSz |= ctMaskGTE((int)msgSz, blockSz) & blockSz;
         currSz -= WOLFSSL_TLS_HMAC_INNER_SZ;
         currSz &= ~(0 - (currSz >> 31));
         ret = wc_HmacUpdate(hmac, in, currSz);
@@ -2315,12 +2407,13 @@ int TLSX_UseSNI(TLSX** extensions, byte type, const void* data, word16 size,
 #ifndef NO_WOLFSSL_SERVER
 
 /** Tells the SNI requested by the client. */
-word16 TLSX_SNI_GetRequest(TLSX* extensions, byte type, void** data)
+word16 TLSX_SNI_GetRequest(TLSX* extensions, byte type, void** data,
+        byte ignoreStatus)
 {
     TLSX* extension = TLSX_Find(extensions, TLSX_SERVER_NAME);
     SNI* sni = TLSX_SNI_Find(extension ? (SNI*)extension->data : NULL, type);
 
-    if (sni && sni->status != WOLFSSL_SNI_NO_MATCH) {
+    if (sni && (ignoreStatus || sni->status != WOLFSSL_SNI_NO_MATCH)) {
         switch (sni->type) {
             case WOLFSSL_SNI_HOST_NAME:
                 if (data) {
@@ -4675,6 +4768,7 @@ int TLSX_ValidateSupportedCurves(const WOLFSSL* ssl, byte first, byte second,
     int             ephmSuite = 0;
     word16          octets    = 0; /* according to 'ecc_set_type ecc_sets[];' */
     int             key       = 0; /* validate key       */
+    int             foundCurve = 0; /* Found at least one supported curve */
 
     (void)oid;
 
@@ -4836,6 +4930,8 @@ int TLSX_ValidateSupportedCurves(const WOLFSSL* ssl, byte first, byte second,
             default: continue; /* unsupported curve */
         }
 
+        foundCurve = 1;
+
     #ifdef HAVE_ECC
         /* Set default Oid */
         if (defOid == 0 && ssl->eccTempKeySz <= octets && defSz > octets) {
@@ -4979,6 +5075,10 @@ int TLSX_ValidateSupportedCurves(const WOLFSSL* ssl, byte first, byte second,
             }
         }
     }
+
+    /* Check we found at least one supported curve */
+    if (!foundCurve)
+        return 0;
 
     *ecdhCurveOID = ssl->ecdhCurveOID;
     /* Choose the default if it is at the required strength. */
@@ -12102,7 +12202,7 @@ int TLSX_FinalizeEch(WOLFSSL_ECH* ech, byte* aad, word32 aadLen)
 
             /* seal the payload */
             ret = wc_HpkeSealBase(ech->hpke, ech->ephemeralKey, receiverPubkey,
-                info, infoLen, aadCopy, aadLen, ech->innerClientHello,
+                info, (word32)infoLen, aadCopy, aadLen, ech->innerClientHello,
                 ech->innerClientHelloLen - ech->hpke->Nt,
                 ech->outerClientPayload);
 
@@ -13212,7 +13312,7 @@ int TLSX_PopulateExtensions(WOLFSSL* ssl, byte isServer)
                 ret = SetCipherSpecs(ssl);
                 if (ret != 0)
                     return ret;
-                now = TimeNowInMilliseconds();
+                now = (word64)TimeNowInMilliseconds();
                 if (now == 0)
                     return GETTIME_ERROR;
             #ifdef WOLFSSL_32BIT_MILLI_TIME

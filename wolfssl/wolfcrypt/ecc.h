@@ -501,6 +501,17 @@ struct ecc_key {
     mp_int*   k;
     alt_fp_int ka[1];
 #endif
+#ifdef WOLFSSL_ECC_BLIND_K
+#ifndef ALT_ECC_SIZE
+    mp_int    kb[1];
+    mp_int    ku[1];
+#else
+    mp_int*   kb;
+    mp_int*   ku;
+    alt_fp_int kba[1];
+    alt_fp_int kua[1];
+#endif
+#endif
 
 #ifdef WOLFSSL_CAAM
     word32 blackKey;     /* address of key encrypted and in secure memory */
@@ -518,9 +529,6 @@ struct ecc_key {
 #if defined(PLUTON_CRYPTO_ECC) || defined(WOLF_CRYPTO_CB)
     void* devCtx;
     int devId;
-#endif
-#if defined(HAVE_PKCS11)
-    byte isPkcs11 : 1; /* indicate if PKCS11 is preferred */
 #endif
 #ifdef WOLFSSL_SILABS_SE_ACCEL
     sl_se_command_context_t  cmd_ctx;
@@ -601,7 +609,20 @@ struct ecc_key {
 #endif
 };
 
-#define wc_ecc_key_get_priv(key) ((key)->k)
+#ifndef WOLFSSL_ECC_BLIND_K
+#define ecc_get_k(key)              (key)->k
+#define ecc_blind_k(key, b)         (void)b
+#define ecc_blind_k_rng(key, rng)   0
+
+#define wc_ecc_key_get_priv(key)    (key)->k
+#else
+mp_int* ecc_get_k(ecc_key* key);
+void ecc_blind_k(ecc_key* key, mp_int* b);
+int ecc_blind_k_rng(ecc_key* key, WC_RNG* rng);
+
+WOLFSSL_API mp_int* wc_ecc_key_get_priv(ecc_key* key);
+#endif
+
 #define WOLFSSL_HAVE_ECC_KEY_GET_PRIV
 
 
@@ -956,6 +977,8 @@ WOLFSSL_API
 const byte* wc_ecc_ctx_get_own_salt(ecEncCtx* ctx);
 WOLFSSL_API
 int wc_ecc_ctx_set_peer_salt(ecEncCtx* ctx, const byte* salt);
+WOLFSSL_API
+int wc_ecc_ctx_set_own_salt(ecEncCtx* ctx, const byte* salt, word32 sz);
 WOLFSSL_API
 int wc_ecc_ctx_set_kdf_salt(ecEncCtx* ctx, const byte* salt, word32 sz);
 WOLFSSL_API

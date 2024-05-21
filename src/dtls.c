@@ -187,14 +187,14 @@ typedef struct WolfSSL_CH {
     byte dtls12cookieSet:1;
 } WolfSSL_CH;
 
-static int ReadVector8(const byte* input, WolfSSL_ConstVector* v)
+static word32 ReadVector8(const byte* input, WolfSSL_ConstVector* v)
 {
     v->size = *input;
     v->elements = input + OPAQUE8_LEN;
     return v->size + OPAQUE8_LEN;
 }
 
-static int ReadVector16(const byte* input, WolfSSL_ConstVector* v)
+static word32 ReadVector16(const byte* input, WolfSSL_ConstVector* v)
 {
     word16 size16;
     ato16(input, &size16);
@@ -1010,11 +1010,20 @@ int DoClientHelloStateless(WOLFSSL* ssl, const byte* input, word32 helloSz,
             ssl->options.dtlsStateful = 1;
             /* Update the window now that we enter the stateful parsing */
 #ifdef WOLFSSL_DTLS13
-            if (isTls13)
+            if (isTls13) {
+                /* Set record numbers before current record number as read */
+                Dtls13Epoch* e;
                 ret = Dtls13UpdateWindowRecordRecvd(ssl);
+                e = Dtls13GetEpoch(ssl, ssl->keys.curEpoch64);
+                if (e != NULL)
+                    XMEMSET(e->window, 0xFF, sizeof(e->window));
+            }
             else
 #endif
                 DtlsUpdateWindow(ssl);
+            /* Set record numbers before current record number as read */
+            XMEMSET(ssl->keys.peerSeq->window, 0xFF,
+                    sizeof(ssl->keys.peerSeq->window));
         }
     }
 

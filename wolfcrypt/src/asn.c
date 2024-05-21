@@ -1203,7 +1203,7 @@ static int GetASN_ObjectId(const byte* input, word32 idx, int length)
     /* OID data must be at least 3 bytes. */
     if (length < 3) {
     #ifdef WOLFSSL_DEBUG_ASN_TEMPLATE
-        WOLFSSL_MSG_VSNPRINTF("OID length must be 3 or more: %d", len);
+        WOLFSSL_MSG_VSNPRINTF("OID length must be 3 or more: %d", length);
     #else
         WOLFSSL_MSG("OID length less than 3");
     #endif
@@ -3496,7 +3496,7 @@ int CheckBitString(const byte* input, word32* inOutIdx, int* len,
 #else
     ASNGetData dataASN[bitStringASN_Length];
     int ret;
-    int bits;
+    int bits = 0;
 
     /* Parse BIT_STRING and check validity of unused bits. */
     XMEMSET(dataASN, 0, sizeof(dataASN));
@@ -7227,7 +7227,7 @@ int wc_CreatePKCS8Key(byte* out, word32* outSz, byte* key, word32 keySz,
     return (int)(tmpSz + sz);
 #else
     DECL_ASNSETDATA(dataASN, pkcs8KeyASN_Length);
-    int sz;
+    int sz = 0;
     int ret = 0;
     word32 keyIdx = 0;
     word32 tmpAlgId = 0;
@@ -8903,7 +8903,7 @@ exit_dc:
     DECL_ASNGETDATA(dataASN, pbes2ParamsASN_Length);
     int    ret = 0;
     int    id = 0;
-    int    version;
+    int    version = 0;
     word32 idx = 0;
     word32 pIdx = 0;
     word32 iterations = 0;
@@ -11405,6 +11405,47 @@ DNS_entry* AltNameNew(void* heap)
         XMEMSET(ret, 0, sizeof(DNS_entry));
     }
     (void)heap;
+    return ret;
+}
+
+DNS_entry* AltNameDup(DNS_entry* from, void* heap)
+{
+    DNS_entry* ret;
+
+    ret = AltNameNew(heap);
+    if (ret == NULL) {
+        WOLFSSL_MSG("\tOut of Memory");
+        return NULL;
+    }
+
+    ret->type = from->type;
+    ret->len = from->len;
+
+
+    ret->name = CopyString(from->name, from->len, heap, DYNAMIC_TYPE_ALTNAME);
+#if defined(OPENSSL_ALL) || defined(WOLFSSL_IP_ALT_NAME)
+    ret->ipString = CopyString(from->ipString, 0, heap, DYNAMIC_TYPE_ALTNAME);
+#endif
+#ifdef OPENSSL_ALL
+    ret->ridString = CopyString(from->ridString, 0, heap, DYNAMIC_TYPE_ALTNAME);
+#endif
+    if (ret->name == NULL
+#if defined(OPENSSL_ALL) || defined(WOLFSSL_IP_ALT_NAME)
+            || (from->ipString != NULL && ret->ipString == NULL)
+#endif
+#ifdef OPENSSL_ALL
+            || (from->ridString != NULL && ret->ridString == NULL)
+#endif
+            ) {
+        WOLFSSL_MSG("\tOut of Memory");
+        FreeAltNames(ret, heap);
+        return NULL;
+    }
+
+#ifdef WOLFSSL_FPKI
+    ret->oidSum = from->oidSum;
+#endif
+
     return ret;
 }
 
@@ -14430,7 +14471,7 @@ static int GetCertName(DecodedCert* cert, char* full, byte* hash, int nameType,
     DECL_ASNGETDATA(dataASN, rdnASN_Length);
     int    ret = 0;
     word32 idx = 0;
-    int    len;
+    int    len = 0;
     word32 srcIdx = *inOutIdx;
 #ifdef WOLFSSL_X509_NAME_AVAILABLE
     WOLFSSL_X509_NAME* dName = NULL;
@@ -16139,7 +16180,7 @@ word32 wc_EncodeSignature(byte* out, const byte* digest, word32 digSz,
 #else
     DECL_ASNSETDATA(dataASN, digestInfoASN_Length);
     int ret = 0;
-    int sz;
+    int sz = 0;
     unsigned char dgst[WC_MAX_DIGEST_SIZE];
 
     CALLOC_ASNSETDATA(dataASN, digestInfoASN_Length, ret, NULL);
@@ -21727,9 +21768,9 @@ static int DecodeCertInternal(DecodedCert* cert, int verify, int* criticalExt,
     DECL_ASNGETDATA(dataASN, x509CertASN_Length);
     int ret = 0;
     int badDate = 0;
-    byte version;
+    byte version = 0;
     word32 idx;
-    word32 serialSz;
+    word32 serialSz = 0;
     const unsigned char* issuer = NULL;
     word32 issuerSz = 0;
     const unsigned char* subject = NULL;
@@ -23790,13 +23831,19 @@ int ParseCertRelative(DecodedCert* cert, int type, int verify, void* cm)
         if (cert->ca) {
             if (verify == VERIFY || verify == VERIFY_OCSP ||
                                                  verify == VERIFY_SKIP_DATE) {
+                word32 keyOID = cert->ca->keyOID;
+            #if defined(WOLFSSL_SM2) && defined(WOLFSSL_SM3)
+                if (cert->selfSigned && (cert->signatureOID == CTC_SM3wSM2)) {
+                    keyOID = SM2k;
+                }
+            #endif
                 /* try to confirm/verify signature */
                 if ((ret = ConfirmSignature(&cert->sigCtx,
                         cert->source + cert->certBegin,
                         cert->sigIndex - cert->certBegin,
                         cert->ca->publicKey, cert->ca->pubKeySize,
-                        cert->ca->keyOID, cert->signature,
-                        cert->sigLength, cert->signatureOID,
+                        keyOID, cert->signature, cert->sigLength,
+                        cert->signatureOID,
                     #ifdef WC_RSA_PSS
                         cert->source + cert->sigParamsIndex,
                         cert->sigParamsLength,
@@ -34365,7 +34412,8 @@ int wc_BuildEccKeyDer(ecc_key* key, byte* output, word32 *inLen,
     return (int)totalSz;
 #else
     DECL_ASNSETDATA(dataASN, eccKeyASN_Length);
-    word32 privSz, pubSz;
+    word32 privSz = 0;
+    word32 pubSz = 0;
     int sz = 0;
     int ret = 0;
     int curveIdSz = 0;
@@ -35327,7 +35375,7 @@ int wc_Curve448PublicKeyToDer(curve448_key* key, byte* output, word32 inLen,
     byte   pubKey[CURVE448_PUB_KEY_SIZE];
     word32 pubKeyLen = (word32)sizeof(pubKey);
 
-    if (key == NULL || output == NULL) {
+    if (key == NULL) {
         return BAD_FUNC_ARG;
     }
 
@@ -37605,7 +37653,7 @@ int VerifyCRL_Signature(SignatureCtx* sigCtx, const byte* toBeSigned,
     InitSignatureCtx(sigCtx, heap, INVALID_DEVID);
     if (ConfirmSignature(sigCtx, toBeSigned, tbsSz, ca->publicKey,
                          ca->pubKeySize, ca->keyOID, signature, sigSz,
-                         signatureOID, sigParams, sigParamsSz, NULL) != 0) {
+                         signatureOID, sigParams, (word32)sigParamsSz, NULL) != 0) {
         WOLFSSL_MSG("CRL Confirm signature failed");
         WOLFSSL_ERROR_VERBOSE(ASN_CRL_CONFIRM_E);
         return ASN_CRL_CONFIRM_E;
@@ -38329,7 +38377,7 @@ end:
                     buff);
             dcrl->sigParamsIndex =
                 dataASN[CRLASN_IDX_SIGALGO_PARAMS].offset;
-            dcrl->sigParamsLength = sigParamsSz;
+            dcrl->sigParamsLength = (word32)sigParamsSz;
         }
     #endif
 

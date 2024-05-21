@@ -306,6 +306,16 @@ int wc_PRF_TLS(byte* digest, word32 digLen, const byte* secret, word32 secLen,
 {
     int ret = 0;
 
+#ifdef WOLFSSL_DEBUG_TLS
+    WOLFSSL_MSG("  secret");
+    WOLFSSL_BUFFER(secret, secLen);
+    WOLFSSL_MSG("  label");
+    WOLFSSL_BUFFER(label, labLen);
+    WOLFSSL_MSG("  seed");
+    WOLFSSL_BUFFER(seed, seedLen);
+#endif
+
+
     if (useAtLeastSha256) {
     #ifdef WOLFSSL_SMALL_STACK
         byte* labelSeed;
@@ -349,6 +359,12 @@ int wc_PRF_TLS(byte* digest, word32 digLen, const byte* secret, word32 secLen,
         ret = BAD_FUNC_ARG;
 #endif
     }
+
+#ifdef WOLFSSL_DEBUG_TLS
+    WOLFSSL_MSG("  digest");
+    WOLFSSL_BUFFER(digest, digLen);
+    WOLFSSL_MSG_EX("hash_type %d", hash_type);
+#endif
 
     return ret;
 }
@@ -548,14 +564,14 @@ int wc_PRF_TLS(byte* digest, word32 digLen, const byte* secret, word32 secLen,
         const byte* info, word32 infoLen, int digest, void* heap)
     {
         int    ret = 0;
-        int    idx = 0;
-        int    len;
+        word32 idx = 0;
+        size_t len;
         byte   *data;
 
         (void)heap;
         /* okmLen (2) + protocol|label len (1) + info len(1) + protocollen +
          * labellen + infolen */
-        len = 4 + protocolLen + labelLen + infoLen;
+        len = 4U + protocolLen + labelLen + infoLen;
 
         data = (byte*)XMALLOC(len, heap, DYNAMIC_TYPE_TMP_BUFFER);
         if (data == NULL)

@@ -129,7 +129,18 @@
         #include <lwip-socket.h>
         #include <errno.h>
     #elif defined(WOLFSSL_ZEPHYR)
-        #include <zephyr/net/socket.h>
+        #include <version.h>
+        #if KERNEL_VERSION_NUMBER >= 0x30100
+            #include <zephyr/net/socket.h>
+            #ifdef CONFIG_POSIX_API
+                #include <zephyr/posix/sys/socket.h>
+            #endif
+        #else
+            #include <net/socket.h>
+            #ifdef CONFIG_POSIX_API
+                #include <posix/sys/socket.h>
+            #endif
+        #endif
     #elif defined(MICROCHIP_PIC32)
         #include <sys/errno.h>
     #elif defined(HAVE_NETX)
@@ -206,7 +217,8 @@
     #define SOCKET_ECONNREFUSED SYS_NET_ECONNREFUSED
     #define SOCKET_ECONNABORTED SYS_NET_ECONNABORTED
 #elif defined(FREESCALE_MQX) || defined(FREESCALE_KSDK_MQX)
-    #if MQX_USE_IO_OLD
+    #if (defined(MQX_USE_IO_OLD) && MQX_USE_IO_OLD) || \
+        defined(FREESCALE_MQX_5_0)
         /* RTCS old I/O doesn't have an EWOULDBLOCK */
         #define SOCKET_EWOULDBLOCK  EAGAIN
         #define SOCKET_EAGAIN       EAGAIN

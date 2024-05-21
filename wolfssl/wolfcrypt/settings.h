@@ -1,6 +1,6 @@
 /* settings.h
  *
- * Copyright (C) 2006-2023 wolfSSL Inc.
+ * Copyright (C) 2006-2024 wolfSSL Inc.
  *
  * This file is part of wolfSSL.
  *
@@ -508,6 +508,9 @@
 
         /* WC_RSA_BLINDING takes up extra space! */
         #define WC_RSA_BLINDING
+
+        /* Cache Resistant features are  on by default, but has performance
+         * penalty on embedded systems. May not be needed here. Disabled: */
         #define WC_NO_CACHE_RESISTANT
     #endif /* !WOLFSSL_ESPIDF_NO_DEFAULT */
 
@@ -1062,17 +1065,34 @@ extern void uITRON4_free(void *p) ;
 
     #if !defined(XMALLOC_USER) && !defined(NO_WOLFSSL_MEMORY) && \
         !defined(WOLFSSL_STATIC_MEMORY) && !defined(WOLFSSL_TRACK_MEMORY)
-        #define XMALLOC(s, h, type)  ((void)(h), (void)(type), pvPortMalloc((s)))
+
+        /* XMALLOC */
+        #if defined(WOLFSSL_ESPIDF) && \
+           (defined(DEBUG_WOLFSSL) || defined(DEBUG_WOLFSSL_MALLOC))
+            #include <wolfssl/wolfcrypt/port/Espressif/esp-sdk-lib.h>
+            #define XMALLOC(s, h, type)  \
+                           ((void)(h), (void)(type), wc_debug_pvPortMalloc( \
+                           (s), (__FILE__), (__LINE__), (__FUNCTION__) ))
+        #else
+            #define XMALLOC(s, h, type)  \
+                           ((void)(h), (void)(type), pvPortMalloc((s)))
+        #endif
+
+        /* XFREE */
         #define XFREE(p, h, type)    ((void)(h), (void)(type), vPortFree((p)))
+
+        /* XREALLOC */
         #if defined(WOLFSSL_ESPIDF)
-                /* In IDF, realloc(p, n) is equivalent to
-                 * heap_caps_realloc(p, s, MALLOC_CAP_8BIT)
-                 *  there's no pvPortRealloc available  */
-                #define XREALLOC(p, n, h, t) ((void)(h), (void)(t), realloc((p), (n)))
-        /* FreeRTOS pvPortRealloc() implementation can be found here:
-         * https://github.com/wolfSSL/wolfssl-freertos/pull/3/files */
+            /* In the Espressif EDP-IDF, realloc(p, n) is equivalent to
+             *     heap_caps_realloc(p, s, MALLOC_CAP_8BIT)
+             * There's no pvPortRealloc available:  */
+            #define XREALLOC(p, n, h, t) ((void)(h), (void)(t), realloc((p), (n)))
         #elif defined(USE_INTEGER_HEAP_MATH) || defined(OPENSSL_EXTRA)
-                #define XREALLOC(p, n, h, t) ((void)(h), (void)(t), pvPortRealloc((p), (n)))
+            /* FreeRTOS pvPortRealloc() implementation can be found here:
+             * https://github.com/wolfSSL/wolfssl-freertos/pull/3/files */
+            #define XREALLOC(p, n, h, t) ((void)(h), (void)(t), pvPortRealloc((p), (n)))
+        #else
+            /* no XREALLOC available */
         #endif
     #endif
 
@@ -1096,7 +1116,11 @@ extern void uITRON4_free(void *p) ;
     #endif
 
     #ifndef SINGLE_THREADED
-        #include "semphr.h"
+        #ifdef PLATFORMIO
+            #include <freertos/semphr.h>
+        #else
+            #include "semphr.h"
+        #endif
     #endif
 #endif
 
@@ -2062,9 +2086,16 @@ extern void uITRON4_free(void *p) ;
 #endif /*(WOLFSSL_APACHE_MYNEWT)*/
 
 #ifdef WOLFSSL_ZEPHYR
+    #include <version.h>
+#if KERNEL_VERSION_NUMBER >= 0x30100
     #include <zephyr/kernel.h>
     #include <zephyr/sys/printk.h>
     #include <zephyr/sys/util.h>
+#else
+    #include <kernel.h>
+    #include <sys/printk.h>
+    #include <sys/util.h>
+#endif
     #include <stdlib.h>
 
     #define WOLFSSL_DH_CONST
@@ -2755,7 +2786,9 @@ extern void uITRON4_free(void *p) ;
     #endif
 
     /* Enable ECC_CACHE_CURVE for ASYNC */
-    #if !defined(ECC_CACHE_CURVE)
+    #if !defined(ECC_CACHE_CURVE) && !defined(NO_ECC_CACHE_CURVE)
+        /* Enabled by default for increased async performance,
+         * but not required */
         #define ECC_CACHE_CURVE
     #endif
 #endif /* WOLFSSL_ASYNC_CRYPT */
@@ -3515,6 +3548,24 @@ extern void uITRON4_free(void *p) ;
 #endif
 
 /* Some final sanity checks */
+#ifdef WOLFSSL_APPLE_HOMEKIT
+    #ifndef WOLFCRYPT_HAVE_SRP
+        #error "WOLFCRYPT_HAVE_SRP is required for Apple Homekit"
+    #endif
+    #ifndef HAVE_CHACHA
+        #error "HAVE_CHACHA is required for Apple Homekit"
+    #endif
+    #ifdef  USE_FAST_MATH
+        #ifdef FP_MAX_BITS
+            #if FP_MAX_BITS < (8192 * 2)
+                #error "HomeKit FP_MAX_BITS must at least (8192 * 2)"
+            #endif
+        #else
+            #error "HomeKit FP_MAX_BITS must be assigned a value (8192 * 2)"
+        #endif
+    #endif
+#endif
+
 #if defined(WOLFSSL_ESPIDF) && defined(ARDUINO)
     #error "Found both ESPIDF and ARDUINO. Pick one."
 #endif
@@ -3533,6 +3584,15 @@ extern void uITRON4_free(void *p) ;
     #ifndef WOLFSSL_SHA512
         #error "HAVE_ED25519 requires WOLFSSL_SHA512"
     #endif
+#endif
+
+#if (defined(OPENSSL_EXTRA) || defined(OPENSSL_ALL)) && \
+    defined(OPENSSL_COEXIST)
+    #error "OPENSSL_EXTRA can not be defined with OPENSSL_COEXIST"
+#endif
+
+#if !defined(NO_DSA) && defined(NO_SHA)
+    #error "Please disable DSA if disabling SHA-1"
 #endif
 
 /* if configure.ac turned on this feature, HAVE_ENTROPY_MEMUSE will be set,

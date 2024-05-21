@@ -153,19 +153,10 @@ static void wc_RsaCleanup(RsaKey* key)
 int wc_InitRsaKey_ex(RsaKey* key, void* heap, int devId)
 {
     int ret      = 0;
-#if defined(HAVE_PKCS11)
-    int isPkcs11 = 0;
-#endif
 
     if (key == NULL) {
         return BAD_FUNC_ARG;
     }
-
-#if defined(HAVE_PKCS11)
-    if (key->isPkcs11) {
-        isPkcs11 = 1;
-    }
-#endif
 
     XMEMSET(key, 0, sizeof(RsaKey));
 
@@ -193,19 +184,18 @@ int wc_InitRsaKey_ex(RsaKey* key, void* heap, int devId)
     #endif
 
     #ifdef WC_ASYNC_ENABLE_RSA
-        #if defined(HAVE_PKCS11)
-            if (!isPkcs11)
+        #ifdef WOLF_CRYPTO_CB
+        /* prefer crypto callback */
+        if (key->devId != INVALID_DEVID)
         #endif
-            {
-                /* handle as async */
-                ret = wolfAsync_DevCtxInit(&key->asyncDev,
-                        WOLFSSL_ASYNC_MARKER_RSA, key->heap, devId);
-                if (ret != 0)
-                    return ret;
-            }
+        {
+            /* handle as async */
+            ret = wolfAsync_DevCtxInit(&key->asyncDev,
+                    WOLFSSL_ASYNC_MARKER_RSA, key->heap, devId);
+            if (ret != 0)
+                return ret;
+        }
     #endif /* WC_ASYNC_ENABLE_RSA */
-#elif defined(HAVE_PKCS11)
-    (void)isPkcs11;
 #endif /* WOLFSSL_ASYNC_CRYPT */
 
 #ifndef WOLFSSL_RSA_PUBLIC_ONLY
@@ -278,14 +268,6 @@ int wc_InitRsaKey_Id(RsaKey* key, unsigned char* id, int len, void* heap,
         ret = BAD_FUNC_ARG;
     if (ret == 0 && (len < 0 || len > RSA_MAX_ID_LEN))
         ret = BUFFER_E;
-
-#if defined(HAVE_PKCS11)
-    if (ret == 0) {
-        XMEMSET(key, 0, sizeof(RsaKey));
-        key->isPkcs11 = 1;
-    }
-#endif
-
     if (ret == 0)
         ret = wc_InitRsaKey_ex(key, heap, devId);
     if (ret == 0 && id != NULL && len != 0) {
@@ -315,14 +297,6 @@ int wc_InitRsaKey_Label(RsaKey* key, const char* label, void* heap, int devId)
         if (labelLen == 0 || labelLen > RSA_MAX_LABEL_LEN)
             ret = BUFFER_E;
     }
-
-#if defined(HAVE_PKCS11)
-    if (ret == 0) {
-        XMEMSET(key, 0, sizeof(RsaKey));
-        key->isPkcs11 = 1;
-    }
-#endif
-
     if (ret == 0)
         ret = wc_InitRsaKey_ex(key, heap, devId);
     if (ret == 0) {
@@ -3344,7 +3318,7 @@ static int RsaPublicEncryptEx(const byte* in, word32 inLen, byte* out,
             if (key->devId != INVALID_DEVID) {
                 /* SCE supports 1024 and 2048 bits */
                 ret = wc_CryptoCb_Rsa(in, inLen, out,
-                                    outLen, rsa_type, key, rng);
+                                    &outLen, rsa_type, key, rng);
                 if (ret != CRYPTOCB_UNAVAILABLE)
                     return ret;
                 /* fall-through when unavailable */
@@ -3501,7 +3475,7 @@ static int RsaPrivateDecryptEx(const byte* in, word32 inLen, byte* out,
            #ifdef WOLF_CRYPTO_CB
                 if (key->devId != INVALID_DEVID) {
                     ret = wc_CryptoCb_Rsa(in, inLen, out,
-                                        outLen, rsa_type, key, rng);
+                                        &outLen, rsa_type, key, rng);
                     if (ret != CRYPTOCB_UNAVAILABLE)
                       return ret;
                     /* fall-through when unavailable */
@@ -4536,7 +4510,8 @@ static int _CheckProbablePrime(mp_int* p, mp_int* q, mp_int* e, int nlen,
 
     if (q != NULL) {
         int valid = 0;
-        /* 5.4 - check that |p-q| <= (2^(1/2))(2^((nlen/2)-1)) */
+        /* 5.4 (186-4) 5.5 (186-5) -
+         * check that |p-q| <= (2^(1/2))(2^((nlen/2)-1)) */
         ret = wc_CompareDiffPQ(p, q, nlen, &valid);
         if ((ret != MP_OKAY) || (!valid)) goto notOkay;
         prime = q;
@@ -4544,14 +4519,15 @@ static int _CheckProbablePrime(mp_int* p, mp_int* q, mp_int* e, int nlen,
     else
         prime = p;
 
-    /* 4.4,5.5 - Check that prime >= (2^(1/2))(2^((nlen/2)-1))
+    /* 4.4,5.5 (186-4) 4.4,5.4 (186-5) -
+     * Check that prime >= (2^(1/2))(2^((nlen/2)-1))
      *           This is a comparison against lowerBound */
     ret = mp_read_unsigned_bin(tmp1, lower_bound, (word32)nlen/16);
     if (ret != MP_OKAY) goto notOkay;
     ret = mp_cmp(prime, tmp1);
     if (ret == MP_LT) goto exit;
 
-    /* 4.5,5.6 - Check that GCD(p-1, e) == 1 */
+    /* 4.5,5.6 (186-4 & 186-5) - Check that GCD(p-1, e) == 1 */
     ret = mp_sub_d(prime, 1, tmp1);  /* tmp1 = prime-1 */
     if (ret != MP_OKAY) goto notOkay;
 #ifdef WOLFSSL_CHECK_MEM_ZERO

@@ -261,7 +261,7 @@ struct Aes {
     ALIGN16 bs_word bs_key[15 * AES_BLOCK_SIZE * BS_WORD_SIZE];
 #endif
     word32  rounds;
-#ifdef WC_AES_C_DYNAMIC_FALLBACK
+#ifdef WC_C_DYNAMIC_FALLBACK
     word32 key_C_fallback[60];
 #endif
     int     keylen;
@@ -405,6 +405,13 @@ struct Aes {
 #endif
 
 #ifdef WOLFSSL_AES_XTS
+    #if FIPS_VERSION3_GE(6,0,0)
+        /* SP800-38E - Restrict data unit to 2^20 blocks per key. A block is
+         * AES_BLOCK_SIZE or 16-bytes (128-bits). So each key may only be used to
+         * protect up to 1,048,576 blocks of AES_BLOCK_SIZE (16,777,216 bytes)
+         */
+        #define FIPS_AES_XTS_MAX_BYTES_PER_TWEAK 16777216
+    #endif
     struct XtsAes {
         Aes aes;
     #ifdef WC_AES_XTS_SUPPORT_SIMULTANEOUS_ENC_AND_DEC_KEYS
@@ -417,6 +424,14 @@ struct Aes {
         typedef struct XtsAes XtsAes;
         #define WC_AESXTS_TYPE_DEFINED
     #endif
+
+    #ifdef WOLFSSL_AESXTS_STREAM
+        struct XtsAesStreamData {
+            byte tweak_block[AES_BLOCK_SIZE];
+            word32 bytes_crypted_with_this_tweak;
+        };
+    #endif
+
 #endif
 
 
@@ -668,6 +683,28 @@ WOLFSSL_API int wc_AesXtsEncryptConsecutiveSectors(XtsAes* aes,
 WOLFSSL_API int wc_AesXtsDecryptConsecutiveSectors(XtsAes* aes,
         byte* out, const byte* in, word32 sz, word64 sector,
         word32 sectorSz);
+
+#ifdef WOLFSSL_AESXTS_STREAM
+
+WOLFSSL_API int wc_AesXtsEncryptInit(XtsAes* aes, const byte* i, word32 iSz,
+         struct XtsAesStreamData *stream);
+
+WOLFSSL_API int wc_AesXtsDecryptInit(XtsAes* aes, const byte* i, word32 iSz,
+         struct XtsAesStreamData *stream);
+
+WOLFSSL_API int wc_AesXtsEncryptUpdate(XtsAes* aes, byte* out,
+         const byte* in, word32 sz, struct XtsAesStreamData *stream);
+
+WOLFSSL_API int wc_AesXtsDecryptUpdate(XtsAes* aes, byte* out,
+         const byte* in, word32 sz, struct XtsAesStreamData *stream);
+
+WOLFSSL_API int wc_AesXtsEncryptFinal(XtsAes* aes, byte* out,
+         const byte* in, word32 sz, struct XtsAesStreamData *stream);
+
+WOLFSSL_API int wc_AesXtsDecryptFinal(XtsAes* aes, byte* out,
+         const byte* in, word32 sz, struct XtsAesStreamData *stream);
+
+#endif /* WOLFSSL_AESXTS_STREAM */
 
 WOLFSSL_API int wc_AesXtsFree(XtsAes* aes);
 #endif
