@@ -825,6 +825,7 @@ static int wc_InitSha3(wc_Sha3* sha3, int type, void* heap, int devId)
     sha3->type = type;
 #else
     (void)devId;
+    (void)type;
 #endif /* WOLFSSL_ASYNC_CRYPT */
 
     return ret;
