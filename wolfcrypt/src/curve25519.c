@@ -30,6 +30,7 @@
 
 #ifdef HAVE_CURVE25519
 
+#include <stdio.h>  /* For fprintf debug output */
 #include <wolfssl/wolfcrypt/curve25519.h>
 #include <wolfssl/wolfcrypt/ge_operations.h>
 #ifdef NO_INLINE
@@ -491,25 +492,73 @@ int wc_curve25519_shared_secret_ex(curve25519_key* private_key,
     int ret;
     ECPoint o;
 
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: ENTRY\n");
+    fprintf(stderr, "[WOLFSSL-DEBUG]   private_key=%p, public_key=%p, out=%p, outlen=%p\n",
+            private_key, public_key, out, outlen);
+    if (outlen != NULL) {
+        fprintf(stderr, "[WOLFSSL-DEBUG]   *outlen=%u (required: >=%d)\n", *outlen, CURVE25519_KEYSIZE);
+    }
+    fflush(stderr);
+
     /* sanity check */
     if (private_key == NULL || public_key == NULL ||
         out == NULL || outlen == NULL || *outlen < CURVE25519_KEYSIZE) {
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: FAILURE - sanity check failed (BAD_FUNC_ARG)\n");
+        fflush(stderr);
         return BAD_FUNC_ARG;
     }
 
     /* make sure we have a populated private and public key */
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Checking pubSet/privSet flags...\n");
+    fprintf(stderr, "[WOLFSSL-DEBUG]   public_key->pubSet = %d\n", public_key->pubSet);
+    #ifndef WOLFSSL_SE050
+        fprintf(stderr, "[WOLFSSL-DEBUG]   private_key->privSet = %d\n", private_key->privSet);
+        fprintf(stderr, "[WOLFSSL-DEBUG]   WOLFSSL_SE050 is NOT defined - checking privSet\n");
+    #else
+        fprintf(stderr, "[WOLFSSL-DEBUG]   WOLFSSL_SE050 is DEFINED - skipping privSet check\n");
+    #endif
+    fflush(stderr);
+
     if (!public_key->pubSet
     #ifndef WOLFSSL_SE050
         || !private_key->privSet
     #endif
     ) {
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: FAILURE - pubSet/privSet check failed!\n");
+        fprintf(stderr, "[WOLFSSL-DEBUG]   public_key->pubSet = %d, private_key->privSet = %d\n", 
+                public_key->pubSet, 
+                #ifndef WOLFSSL_SE050
+                    private_key->privSet
+                #else
+                    0  /* Not checked when SE050 defined */
+                #endif
+                );
+        fflush(stderr);
         return ECC_BAD_ARG_E;
     }
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: pubSet/privSet check passed\n");
+    fflush(stderr);
 
     /* avoid implementation fingerprinting - make sure signed bit is not set */
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Checking MSB on public key...\n");
+    {
+        byte last_byte = public_key->p.point[CURVE25519_KEYSIZE-1];
+        byte msb_bit = last_byte & 0x80;
+        fprintf(stderr, "[WOLFSSL-DEBUG]   public_key->p.point[%d] = 0x%02x\n", CURVE25519_KEYSIZE-1, last_byte);
+        fprintf(stderr, "[WOLFSSL-DEBUG]   MSB (bit 7) = %s (0x%02x)\n", 
+                msb_bit ? "SET (BAD!)" : "CLEAR (OK)", msb_bit);
+        fflush(stderr);
+    }
+
     if (public_key->p.point[CURVE25519_KEYSIZE-1] & 0x80) {
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: FAILURE - MSB check failed!\n");
+        fprintf(stderr, "[WOLFSSL-DEBUG]   public_key->p.point[%d] = 0x%02x (MSB is SET)\n", 
+                CURVE25519_KEYSIZE-1, public_key->p.point[CURVE25519_KEYSIZE-1]);
+        fflush(stderr);
         return ECC_BAD_ARG_E;
     }
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: MSB check passed\n");
+    fflush(stderr);
 
 #ifdef WOLF_CRYPTO_CB
     if (private_key->devId != INVALID_DEVID) {
@@ -563,10 +612,17 @@ int wc_curve25519_shared_secret_ex(curve25519_key* private_key,
     if (ret == 0) {
         curve25519_copy_point(out, o.point, endian);
         *outlen = CURVE25519_KEYSIZE;
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: SUCCESS - returning 0\n");
+        fflush(stderr);
+    } else {
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: FAILURE - computation failed, ret=%d\n", ret);
+        fflush(stderr);
     }
 
     ForceZero(&o, sizeof(o));
 
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: EXIT returning %d\n", ret);
+    fflush(stderr);
     return ret;
 }
 
