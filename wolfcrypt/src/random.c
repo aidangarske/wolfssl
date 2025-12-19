@@ -1167,10 +1167,21 @@ static int PollAndReSeed(WC_RNG* rng)
 {
     int ret   = DRBG_NEED_RESEED;
     int devId = INVALID_DEVID;
+    fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: ENTRY rng=%p, rng->drbg=%p, rng->status=%d\n",
+            rng, rng ? rng->drbg : NULL, rng ? rng->status : -1);
+    fflush(stderr);
 #if defined(WOLFSSL_ASYNC_CRYPT) || defined(WOLF_CRYPTO_CB)
     devId = rng->devId;
 #endif
-    if (wc_RNG_HealthTestLocal(rng, 1, rng->heap, devId) == 0) {
+    fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: Calling wc_RNG_HealthTestLocal(rng=%p, reseed=1, heap=%p, devId=%d)...\n",
+            rng, rng ? rng->heap : NULL, devId);
+    fflush(stderr);
+    int health_ret = wc_RNG_HealthTestLocal(rng, 1, rng->heap, devId);
+    fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: wc_RNG_HealthTestLocal returned %d (0=success)\n", health_ret);
+    fflush(stderr);
+    if (health_ret == 0) {
+        fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: Health test passed, proceeding with re-seed\n");
+        fflush(stderr);
     #if defined(WOLFSSL_SMALL_STACK_CACHE)
         byte* newSeed = rng->newSeed_buf;
         ret = DRBG_SUCCESS;
@@ -1183,29 +1194,60 @@ static int PollAndReSeed(WC_RNG* rng)
         ret = DRBG_SUCCESS;
     #endif
         if (ret == DRBG_SUCCESS) {
+            fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: Memory allocation successful, generating seed...\n");
+            fflush(stderr);
         #ifdef WC_RNG_SEED_CB
             if (seedCb == NULL) {
                 ret = DRBG_NO_SEED_CB;
+                fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: seedCb is NULL, ret=DRBG_NO_SEED_CB (%d)\n", ret);
+                fflush(stderr);
             }
             else {
+                fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: Calling seedCb(&rng->seed=%p, newSeed=%p, sz=%d)...\n",
+                        &rng->seed, newSeed, SEED_SZ + SEED_BLOCK_SZ);
+                fflush(stderr);
                 ret = seedCb(&rng->seed, newSeed, SEED_SZ + SEED_BLOCK_SZ);
+                fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: seedCb returned %d (0=success)\n", ret);
+                fflush(stderr);
                 if (ret != 0) {
                     ret = DRBG_FAILURE;
+                    fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: seedCb failed, setting ret=DRBG_FAILURE (%d)\n", ret);
+                    fflush(stderr);
                 }
             }
         #else
+            fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: Calling wc_GenerateSeed(&rng->seed=%p, newSeed=%p, sz=%d)...\n",
+                    &rng->seed, newSeed, SEED_SZ + SEED_BLOCK_SZ);
+            fflush(stderr);
             ret = wc_GenerateSeed(&rng->seed, newSeed,
                               SEED_SZ + SEED_BLOCK_SZ);
+            fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: wc_GenerateSeed returned %d (0=success)\n", ret);
+            fflush(stderr);
         #endif
-            if (ret != 0)
+            if (ret != 0) {
                 ret = DRBG_FAILURE;
+                fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: Seed generation failed, setting ret=DRBG_FAILURE (%d)\n", ret);
+                fflush(stderr);
+            }
         }
-        if (ret == DRBG_SUCCESS)
+        if (ret == DRBG_SUCCESS) {
+            fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: Calling wc_RNG_TestSeed(newSeed=%p, sz=%d)...\n",
+                    newSeed, SEED_SZ + SEED_BLOCK_SZ);
+            fflush(stderr);
             ret = wc_RNG_TestSeed(newSeed, SEED_SZ + SEED_BLOCK_SZ);
+            fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: wc_RNG_TestSeed returned %d (0=DRBG_SUCCESS, 3=DRBG_CONT_FAILURE)\n", ret);
+            fflush(stderr);
+        }
 
-        if (ret == DRBG_SUCCESS)
+        if (ret == DRBG_SUCCESS) {
+            fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: Calling Hash_DRBG_Reseed(drbg=%p, seed=%p, seedSz=%d)...\n",
+                    rng->drbg, newSeed + SEED_BLOCK_SZ, SEED_SZ);
+            fflush(stderr);
             ret = Hash_DRBG_Reseed((DRBG_internal *)rng->drbg,
                                    newSeed + SEED_BLOCK_SZ, SEED_SZ);
+            fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: Hash_DRBG_Reseed returned %d (0=DRBG_SUCCESS, 1=DRBG_FAILURE)\n", ret);
+            fflush(stderr);
+        }
     #if defined(WOLFSSL_SMALL_STACK) && !defined(WOLFSSL_SMALL_STACK_CACHE)
         if (newSeed != NULL) {
             ForceZero(newSeed, SEED_SZ + SEED_BLOCK_SZ);
@@ -1217,8 +1259,12 @@ static int PollAndReSeed(WC_RNG* rng)
     }
     else {
         ret = DRBG_CONT_FAILURE;
+        fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: Health test FAILED, setting ret=DRBG_CONT_FAILURE (%d)\n", ret);
+        fflush(stderr);
     }
 
+    fprintf(stderr, "[RNG-DEBUG] PollAndReSeed: EXIT returning %d (DRBG_SUCCESS=0, DRBG_FAILURE=1, DRBG_CONT_FAILURE=3)\n", ret);
+    fflush(stderr);
     return ret;
 }
 #endif
@@ -1346,6 +1392,9 @@ int wc_RNG_GenerateBlock(WC_RNG* rng, byte* output, word32 sz)
     /* Attempt recovery if RNG is in failed state */
     if (rng->status != DRBG_OK) {
         fprintf(stderr, "[RNG-DEBUG]   RNG status is NOT OK, attempting recovery...\n");
+        fprintf(stderr, "[RNG-DEBUG]     Current status: %d (DRBG_NOT_INIT=0, DRBG_OK=1, DRBG_FAILED=2, DRBG_CONT_FAILED=3)\n",
+                rng->status);
+        fprintf(stderr, "[RNG-DEBUG]     rng->drbg=%p (NULL means DRBG not initialized)\n", rng->drbg);
         fflush(stderr);
         /* Don't attempt recovery for continuous failures (FIPS requirement) */
         if (rng->status == DRBG_CONT_FAILED) {
@@ -1353,6 +1402,13 @@ int wc_RNG_GenerateBlock(WC_RNG* rng, byte* output, word32 sz)
             fprintf(stderr, "[RNG-DEBUG]     Returning DRBG_CONT_FIPS_E\n");
             fflush(stderr);
             return DRBG_CONT_FIPS_E;
+        }
+        /* If DRBG is not initialized (drbg == NULL), we cannot re-seed */
+        if (rng->drbg == NULL) {
+            fprintf(stderr, "[RNG-DEBUG]     ERROR: rng->drbg is NULL - DRBG not initialized, cannot re-seed\n");
+            fprintf(stderr, "[RNG-DEBUG]     Returning RNG_FAILURE_E\n");
+            fflush(stderr);
+            return RNG_FAILURE_E;
         }
         fprintf(stderr, "[RNG-DEBUG]     Attempting recovery via PollAndReSeed...\n");
         fflush(stderr);
