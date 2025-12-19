@@ -45,6 +45,7 @@ This library contains implementation for the random number generator.
  */
 
 #include <wolfssl/wolfcrypt/libwolfssl_sources.h>
+#include <stdio.h>
 
 /* on HPUX 11 you may need to install /dev/random see
    http://h20293.www2.hp.com/portal/swdepot/displayProductInfo.do?productNumber=KRNG11I
@@ -1228,113 +1229,242 @@ int wc_RNG_GenerateBlock(WC_RNG* rng, byte* output, word32 sz)
 {
     int ret;
 
-    if (rng == NULL || output == NULL)
-        return BAD_FUNC_ARG;
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: ENTRY\n");
+    fprintf(stderr, "[RNG-DEBUG]   rng=%p, output=%p, sz=%u\n", rng, output, (unsigned int)sz);
+    fflush(stderr);
 
-    if (sz == 0)
+    if (rng == NULL || output == NULL) {
+        fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: NULL pointer check failed\n");
+        fflush(stderr);
+        return BAD_FUNC_ARG;
+    }
+
+    if (sz == 0) {
+        fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: sz=0, returning 0\n");
+        fflush(stderr);
         return 0;
+    }
 
 #ifdef WOLF_CRYPTO_CB
     #ifndef WOLF_CRYPTO_CB_FIND
     if (rng->devId != INVALID_DEVID)
     #endif
     {
+        fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: WOLF_CRYPTO_CB path - checking crypto callback\n");
+        fprintf(stderr, "[RNG-DEBUG]   rng->devId=%d (INVALID_DEVID=%d)\n", rng->devId, INVALID_DEVID);
+        fflush(stderr);
         ret = wc_CryptoCb_RandomBlock(rng, output, sz);
-        if (ret != WC_NO_ERR_TRACE(CRYPTOCB_UNAVAILABLE))
+        fprintf(stderr, "[RNG-DEBUG]   wc_CryptoCb_RandomBlock returned %d\n", ret);
+        if (ret != WC_NO_ERR_TRACE(CRYPTOCB_UNAVAILABLE)) {
+            fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: Crypto callback used, returning %d\n", ret);
+            fflush(stderr);
             return ret;
+        }
+        fprintf(stderr, "[RNG-DEBUG]   Crypto callback unavailable, falling through\n");
+        fflush(stderr);
         /* fall-through when unavailable */
     }
+#else
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: WOLF_CRYPTO_CB is NOT defined\n");
+    fflush(stderr);
 #endif
 
 #ifdef HAVE_INTEL_RDRAND
-    if (IS_INTEL_RDRAND(intel_flags))
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: HAVE_INTEL_RDRAND is defined\n");
+    if (IS_INTEL_RDRAND(intel_flags)) {
+        fprintf(stderr, "[RNG-DEBUG]   Using Intel RDRAND, returning wc_GenerateRand_IntelRD\n");
+        fflush(stderr);
         return wc_GenerateRand_IntelRD(NULL, output, sz);
+    }
+    fprintf(stderr, "[RNG-DEBUG]   Intel RDRAND not available, continuing\n");
+    fflush(stderr);
+#else
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: HAVE_INTEL_RDRAND is NOT defined\n");
+    fflush(stderr);
 #endif
 
 #if defined(WOLFSSL_SILABS_SE_ACCEL) && defined(WOLFSSL_SILABS_TRNG)
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: Using Silabs TRNG\n");
+    fflush(stderr);
     return silabs_GenerateRand(output, sz);
 #endif
 
 #if defined(WOLFSSL_ASYNC_CRYPT)
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: WOLFSSL_ASYNC_CRYPT is defined\n");
+    fprintf(stderr, "[RNG-DEBUG]   rng->asyncDev.marker=%d (WOLFSSL_ASYNC_MARKER_RNG=%d)\n", 
+            rng->asyncDev.marker, WOLFSSL_ASYNC_MARKER_RNG);
+    fflush(stderr);
     if (rng->asyncDev.marker == WOLFSSL_ASYNC_MARKER_RNG) {
+        fprintf(stderr, "[RNG-DEBUG]   Using async RNG\n");
         /* these are blocking */
     #ifdef HAVE_CAVIUM
+        fprintf(stderr, "[RNG-DEBUG]     HAVE_CAVIUM path\n");
+        fflush(stderr);
         return NitroxRngGenerateBlock(rng, output, sz);
     #elif defined(HAVE_INTEL_QA) && defined(QAT_ENABLE_RNG)
+        fprintf(stderr, "[RNG-DEBUG]     HAVE_INTEL_QA path\n");
+        fflush(stderr);
         return IntelQaDrbg(&rng->asyncDev, output, sz);
     #else
+        fprintf(stderr, "[RNG-DEBUG]     Simulator not supported\n");
+        fflush(stderr);
         /* simulator not supported */
     #endif
     }
+    fprintf(stderr, "[RNG-DEBUG]   Async RNG not used, continuing\n");
+    fflush(stderr);
+#else
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: WOLFSSL_ASYNC_CRYPT is NOT defined\n");
+    fflush(stderr);
 #endif
 
 #ifdef CUSTOM_RAND_GENERATE_BLOCK
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: CUSTOM_RAND_GENERATE_BLOCK is defined\n");
+    fflush(stderr);
     XMEMSET(output, 0, sz);
     ret = (int)CUSTOM_RAND_GENERATE_BLOCK(output, sz);
+    fprintf(stderr, "[RNG-DEBUG]   CUSTOM_RAND_GENERATE_BLOCK returned %d\n", ret);
+    fflush(stderr);
 #else
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: CUSTOM_RAND_GENERATE_BLOCK is NOT defined, using standard path\n");
+    fflush(stderr);
 
 #ifdef HAVE_HASHDRBG
-    if (sz > RNG_MAX_BLOCK_LEN)
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: HAVE_HASHDRBG is defined - using Hash DRBG path\n");
+    fprintf(stderr, "[RNG-DEBUG]   sz=%u, RNG_MAX_BLOCK_LEN=%d\n", (unsigned int)sz, RNG_MAX_BLOCK_LEN);
+    fflush(stderr);
+    if (sz > RNG_MAX_BLOCK_LEN) {
+        fprintf(stderr, "[RNG-DEBUG]   ERROR: sz > RNG_MAX_BLOCK_LEN, returning BAD_FUNC_ARG\n");
+        fflush(stderr);
         return BAD_FUNC_ARG;
+    }
+
+    fprintf(stderr, "[RNG-DEBUG]   Checking RNG status: rng->status=%d (DRBG_OK=%d, DRBG_FAILED=%d, DRBG_CONT_FAILED=%d)\n",
+            rng->status, DRBG_OK, DRBG_FAILED, DRBG_CONT_FAILED);
+    fflush(stderr);
 
     /* Attempt recovery if RNG is in failed state */
     if (rng->status != DRBG_OK) {
+        fprintf(stderr, "[RNG-DEBUG]   RNG status is NOT OK, attempting recovery...\n");
+        fflush(stderr);
         /* Don't attempt recovery for continuous failures (FIPS requirement) */
         if (rng->status == DRBG_CONT_FAILED) {
+            fprintf(stderr, "[RNG-DEBUG]     Status is DRBG_CONT_FAILED (continuous failure), cannot recover (FIPS requirement)\n");
+            fprintf(stderr, "[RNG-DEBUG]     Returning DRBG_CONT_FIPS_E\n");
+            fflush(stderr);
             return DRBG_CONT_FIPS_E;
         }
+        fprintf(stderr, "[RNG-DEBUG]     Attempting recovery via PollAndReSeed...\n");
+        fflush(stderr);
         /* Try to recover by re-seeding the RNG */
         int reseed_ret = PollAndReSeed(rng);
+        fprintf(stderr, "[RNG-DEBUG]     PollAndReSeed returned %d (DRBG_SUCCESS=%d, DRBG_CONT_FAILURE=%d)\n",
+                reseed_ret, DRBG_SUCCESS, DRBG_CONT_FAILURE);
+        fflush(stderr);
         if (reseed_ret == DRBG_SUCCESS) {
             rng->status = DRBG_OK;
+            fprintf(stderr, "[RNG-DEBUG]     Recovery SUCCESS - RNG status set to DRBG_OK, continuing with generation\n");
+            fflush(stderr);
             /* Continue with generation */
         } else if (reseed_ret == DRBG_CONT_FAILURE) {
             /* Continuous failure detected during recovery */
             rng->status = DRBG_CONT_FAILED;
+            fprintf(stderr, "[RNG-DEBUG]     Recovery detected DRBG_CONT_FAILURE, setting status to DRBG_CONT_FAILED\n");
+            fprintf(stderr, "[RNG-DEBUG]     Returning DRBG_CONT_FIPS_E\n");
+            fflush(stderr);
             return DRBG_CONT_FIPS_E;
         } else {
             /* Recovery failed, return error */
+            fprintf(stderr, "[RNG-DEBUG]     Recovery FAILED with code %d, returning RNG_FAILURE_E\n", reseed_ret);
+            fflush(stderr);
             return RNG_FAILURE_E;
         }
+    } else {
+        fprintf(stderr, "[RNG-DEBUG]   RNG status is OK (DRBG_OK), proceeding with generation\n");
+        fflush(stderr);
     }
 
 #if defined(HAVE_GETPID) && !defined(WOLFSSL_NO_GETPID)
+    fprintf(stderr, "[RNG-DEBUG]   HAVE_GETPID check: rng->pid=%d, getpid()=%d\n", 
+            (int)rng->pid, (int)getpid());
+    fflush(stderr);
     if (rng->pid != getpid()) {
+        fprintf(stderr, "[RNG-DEBUG]     PID mismatch detected, re-seeding...\n");
+        fflush(stderr);
         rng->pid = getpid();
         ret = PollAndReSeed(rng);
+        fprintf(stderr, "[RNG-DEBUG]     PollAndReSeed (PID change) returned %d\n", ret);
         if (ret != DRBG_SUCCESS) {
             rng->status = DRBG_FAILED;
+            fprintf(stderr, "[RNG-DEBUG]     PID re-seed FAILED, setting status to DRBG_FAILED, returning RNG_FAILURE_E\n");
+            fflush(stderr);
             return RNG_FAILURE_E;
         }
+        fprintf(stderr, "[RNG-DEBUG]     PID re-seed SUCCESS\n");
+        fflush(stderr);
+    } else {
+        fprintf(stderr, "[RNG-DEBUG]     PID matches, no re-seed needed\n");
+        fflush(stderr);
     }
+#else
+    fprintf(stderr, "[RNG-DEBUG]   HAVE_GETPID is NOT defined, skipping PID check\n");
+    fflush(stderr);
 #endif
 
+    fprintf(stderr, "[RNG-DEBUG]   Calling Hash_DRBG_Generate(drbg=%p, output=%p, sz=%u)...\n",
+            rng->drbg, output, (unsigned int)sz);
+    fflush(stderr);
     ret = Hash_DRBG_Generate((DRBG_internal *)rng->drbg, output, sz);
+    fprintf(stderr, "[RNG-DEBUG]   Hash_DRBG_Generate returned %d (DRBG_SUCCESS=%d, DRBG_NEED_RESEED=%d)\n",
+            ret, DRBG_SUCCESS, DRBG_NEED_RESEED);
+    fflush(stderr);
     if (ret == DRBG_NEED_RESEED) {
+        fprintf(stderr, "[RNG-DEBUG]     DRBG_NEED_RESEED detected, calling PollAndReSeed...\n");
+        fflush(stderr);
         ret = PollAndReSeed(rng);
-        if (ret == DRBG_SUCCESS)
+        fprintf(stderr, "[RNG-DEBUG]     PollAndReSeed (NEED_RESEED) returned %d\n", ret);
+        if (ret == DRBG_SUCCESS) {
+            fprintf(stderr, "[RNG-DEBUG]     Re-seed SUCCESS, retrying Hash_DRBG_Generate...\n");
+            fflush(stderr);
             ret = Hash_DRBG_Generate((DRBG_internal *)rng->drbg, output, sz);
+            fprintf(stderr, "[RNG-DEBUG]     Hash_DRBG_Generate (retry) returned %d\n", ret);
+            fflush(stderr);
+        } else {
+            fprintf(stderr, "[RNG-DEBUG]     Re-seed FAILED, will return error\n");
+            fflush(stderr);
+        }
     }
 
+    fprintf(stderr, "[RNG-DEBUG]   Processing Hash_DRBG_Generate result: ret=%d\n", ret);
+    fflush(stderr);
     if (ret == DRBG_SUCCESS) {
         ret = 0;
+        fprintf(stderr, "[RNG-DEBUG]     SUCCESS - converted to 0\n");
+        fflush(stderr);
     }
     else if (ret == DRBG_CONT_FAILURE) {
         ret = DRBG_CONT_FIPS_E;
         rng->status = DRBG_CONT_FAILED;
+        fprintf(stderr, "[RNG-DEBUG]     DRBG_CONT_FAILURE - returning DRBG_CONT_FIPS_E, status set to DRBG_CONT_FAILED\n");
+        fflush(stderr);
     }
     else {
         ret = RNG_FAILURE_E;
         rng->status = DRBG_FAILED;
+        fprintf(stderr, "[RNG-DEBUG]     FAILURE - returning RNG_FAILURE_E, status set to DRBG_FAILED\n");
+        fflush(stderr);
     }
 #else
-
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: HAVE_HASHDRBG is NOT defined - RNG configuration error\n");
+    fprintf(stderr, "[RNG-DEBUG]   Returning RNG_FAILURE_E\n");
+    fflush(stderr);
     /* if we get here then there is an RNG configuration error */
     ret = RNG_FAILURE_E;
-
 #endif /* HAVE_HASHDRBG */
 #endif /* CUSTOM_RAND_GENERATE_BLOCK */
 
+    fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: EXIT returning %d\n", ret);
+    fflush(stderr);
     return ret;
 }
 
