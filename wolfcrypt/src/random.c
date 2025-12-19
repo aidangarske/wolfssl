@@ -1277,8 +1277,26 @@ int wc_RNG_GenerateBlock(WC_RNG* rng, byte* output, word32 sz)
     if (sz > RNG_MAX_BLOCK_LEN)
         return BAD_FUNC_ARG;
 
-    if (rng->status != DRBG_OK)
-        return RNG_FAILURE_E;
+    /* Attempt recovery if RNG is in failed state */
+    if (rng->status != DRBG_OK) {
+        /* Don't attempt recovery for continuous failures (FIPS requirement) */
+        if (rng->status == DRBG_CONT_FAILED) {
+            return DRBG_CONT_FIPS_E;
+        }
+        /* Try to recover by re-seeding the RNG */
+        int reseed_ret = PollAndReSeed(rng);
+        if (reseed_ret == DRBG_SUCCESS) {
+            rng->status = DRBG_OK;
+            /* Continue with generation */
+        } else if (reseed_ret == DRBG_CONT_FAILURE) {
+            /* Continuous failure detected during recovery */
+            rng->status = DRBG_CONT_FAILED;
+            return DRBG_CONT_FIPS_E;
+        } else {
+            /* Recovery failed, return error */
+            return RNG_FAILURE_E;
+        }
+    }
 
 #if defined(HAVE_GETPID) && !defined(WOLFSSL_NO_GETPID)
     if (rng->pid != getpid()) {
