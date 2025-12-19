@@ -1377,7 +1377,7 @@ int wc_RNG_GenerateBlock(WC_RNG* rng, byte* output, word32 sz)
 
 #ifdef HAVE_HASHDRBG
     fprintf(stderr, "[RNG-DEBUG] wc_RNG_GenerateBlock: HAVE_HASHDRBG is defined - using Hash DRBG path\n");
-    fprintf(stderr, "[RNG-DEBUG]   sz=%u, RNG_MAX_BLOCK_LEN=%d\n", (unsigned int)sz, RNG_MAX_BLOCK_LEN);
+    fprintf(stderr, "[RNG-DEBUG]   sz=%u, RNG_MAX_BLOCK_LEN=%ld\n", (unsigned int)sz, (long)RNG_MAX_BLOCK_LEN);
     fflush(stderr);
     if (sz > RNG_MAX_BLOCK_LEN) {
         fprintf(stderr, "[RNG-DEBUG]   ERROR: sz > RNG_MAX_BLOCK_LEN, returning BAD_FUNC_ARG\n");
@@ -1403,12 +1403,43 @@ int wc_RNG_GenerateBlock(WC_RNG* rng, byte* output, word32 sz)
             fflush(stderr);
             return DRBG_CONT_FIPS_E;
         }
-        /* If DRBG is not initialized (drbg == NULL), we cannot re-seed */
+        /* If DRBG is not initialized (drbg == NULL), try to initialize it */
         if (rng->drbg == NULL) {
-            fprintf(stderr, "[RNG-DEBUG]     ERROR: rng->drbg is NULL - DRBG not initialized, cannot re-seed\n");
-            fprintf(stderr, "[RNG-DEBUG]     Returning RNG_FAILURE_E\n");
-            fflush(stderr);
-            return RNG_FAILURE_E;
+            fprintf(stderr, "[RNG-DEBUG]     rng->drbg is NULL - DRBG not initialized\n");
+            if (rng->status == DRBG_NOT_INIT) {
+                fprintf(stderr, "[RNG-DEBUG]     Status is DRBG_NOT_INIT, attempting to initialize RNG...\n");
+                fflush(stderr);
+                /* Save heap and devId before initialization (since _InitRng clears the structure) */
+                void* saved_heap = rng->heap;
+                int saved_devId = INVALID_DEVID;
+#if defined(WOLFSSL_ASYNC_CRYPT) || defined(WOLF_CRYPTO_CB)
+                saved_devId = rng->devId;
+#endif
+                fprintf(stderr, "[RNG-DEBUG]     Saved heap=%p, devId=%d before initialization\n", saved_heap, saved_devId);
+                fflush(stderr);
+                /* Try to initialize the RNG using saved heap and devId */
+                int init_ret = wc_InitRng_ex(rng, saved_heap, saved_devId);
+                fprintf(stderr, "[RNG-DEBUG]     wc_InitRng_ex returned %d (0=success)\n", init_ret);
+                fprintf(stderr, "[RNG-DEBUG]     After init: status=%d, drbg=%p\n", rng->status, rng->drbg);
+                fflush(stderr);
+                if (init_ret == 0 && rng->status == DRBG_OK && rng->drbg != NULL) {
+                    fprintf(stderr, "[RNG-DEBUG]     RNG initialization SUCCESS - status=%d, drbg=%p\n", 
+                            rng->status, rng->drbg);
+                    fflush(stderr);
+                    /* RNG is now initialized, continue with generation */
+                } else {
+                    fprintf(stderr, "[RNG-DEBUG]     RNG initialization FAILED - status=%d, drbg=%p, init_ret=%d\n",
+                            rng->status, rng->drbg, init_ret);
+                    fprintf(stderr, "[RNG-DEBUG]     Returning RNG_FAILURE_E\n");
+                    fflush(stderr);
+                    return RNG_FAILURE_E;
+                }
+            } else {
+                fprintf(stderr, "[RNG-DEBUG]     ERROR: rng->drbg is NULL but status is not DRBG_NOT_INIT (status=%d)\n", rng->status);
+                fprintf(stderr, "[RNG-DEBUG]     Returning RNG_FAILURE_E\n");
+                fflush(stderr);
+                return RNG_FAILURE_E;
+            }
         }
         fprintf(stderr, "[RNG-DEBUG]     Attempting recovery via PollAndReSeed...\n");
         fflush(stderr);
