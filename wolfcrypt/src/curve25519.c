@@ -560,54 +560,140 @@ int wc_curve25519_shared_secret_ex(curve25519_key* private_key,
     fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: MSB check passed\n");
     fflush(stderr);
 
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: All validation checks passed, entering computation path...\n");
+    fprintf(stderr, "[WOLFSSL-DEBUG]   private_key->devId = %d (INVALID_DEVID=%d)\n", private_key->devId, INVALID_DEVID);
+    fflush(stderr);
+
 #ifdef WOLF_CRYPTO_CB
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Checking crypto callback...\n");
     if (private_key->devId != INVALID_DEVID) {
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Calling wc_CryptoCb_Curve25519 (devId=%d)\n", private_key->devId);
+        fflush(stderr);
         ret = wc_CryptoCb_Curve25519(private_key, public_key, out, outlen,
             endian);
-        if (ret != WC_NO_ERR_TRACE(CRYPTOCB_UNAVAILABLE))
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: wc_CryptoCb_Curve25519 returned %d\n", ret);
+        fflush(stderr);
+        if (ret != WC_NO_ERR_TRACE(CRYPTOCB_UNAVAILABLE)) {
+            fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Crypto callback returned non-UNAVAILABLE, returning %d\n", ret);
+            fflush(stderr);
             return ret;
+        }
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Crypto callback unavailable, falling through...\n");
+        fflush(stderr);
         /* fall-through when unavailable */
+    } else {
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Crypto callback not used (devId=INVALID_DEVID)\n");
+        fflush(stderr);
     }
+#else
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: WOLF_CRYPTO_CB is NOT defined - skipping crypto callback check\n");
+    fflush(stderr);
 #endif
+
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Initializing computation...\n");
+    fprintf(stderr, "[WOLFSSL-DEBUG]   About to call curve25519 computation function\n");
+    fprintf(stderr, "[WOLFSSL-DEBUG]   Key values (for debugging):\n");
+    fprintf(stderr, "[WOLFSSL-DEBUG]     private_key->k[0]=0x%02x, private_key->k[31]=0x%02x\n", 
+            private_key->k[0], private_key->k[CURVE25519_KEYSIZE-1]);
+    fprintf(stderr, "[WOLFSSL-DEBUG]     public_key->p.point[0]=0x%02x, public_key->p.point[31]=0x%02x\n",
+            public_key->p.point[0], public_key->p.point[CURVE25519_KEYSIZE-1]);
+#ifdef FREESCALE_LTC_ECC
+    fprintf(stderr, "[WOLFSSL-DEBUG]   FREESCALE_LTC_ECC is DEFINED - will use nxp_ltc_curve25519\n");
+#else
+    #ifdef WOLFSSL_SE050
+        fprintf(stderr, "[WOLFSSL-DEBUG]   WOLFSSL_SE050 is DEFINED\n");
+    #else
+        #ifdef WOLFSSL_CURVE25519_BLINDING
+            fprintf(stderr, "[WOLFSSL-DEBUG]   WOLFSSL_CURVE25519_BLINDING is DEFINED - will use curve25519_smul_blind\n");
+        #else
+            fprintf(stderr, "[WOLFSSL-DEBUG]   Will use standard curve25519\n");
+        #endif
+    #endif
+#endif
+    fflush(stderr);
 
     XMEMSET(&o, 0, sizeof(o));
 
 #ifdef FREESCALE_LTC_ECC
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Calling nxp_ltc_curve25519...\n");
+    fflush(stderr);
     /* input point P on Curve25519 */
     ret = nxp_ltc_curve25519(&o, private_key->k, &public_key->p,
         kLTC_Curve25519);
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: nxp_ltc_curve25519 returned %d\n", ret);
+    fflush(stderr);
 #else
     #ifdef WOLFSSL_SE050
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Checking SE050 path...\n");
+    fprintf(stderr, "[WOLFSSL-DEBUG]   private_key->privSet = %d\n", private_key->privSet);
+    fflush(stderr);
     if (!private_key->privSet) {
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Using SE050 path (privSet=0)\n");
+        fflush(stderr);
         /* use NXP SE050: "privSet" is not set */
         ret = se050_curve25519_shared_secret(private_key, public_key, &o);
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: se050_curve25519_shared_secret returned %d\n", ret);
+        fflush(stderr);
     }
     else
     #endif
     {
 #ifndef WOLFSSL_CURVE25519_BLINDING
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Calling curve25519 (standard, no blinding)...\n");
+        fprintf(stderr, "[WOLFSSL-DEBUG]   private_key->k pointer = %p\n", private_key->k);
+        fprintf(stderr, "[WOLFSSL-DEBUG]   public_key->p.point pointer = %p\n", public_key->p.point);
+        fprintf(stderr, "[WOLFSSL-DEBUG]   o.point pointer = %p\n", o.point);
+        fflush(stderr);
     SAVE_VECTOR_REGISTERS(return _svr_ret;);
 
     ret = curve25519(o.point, private_key->k, public_key->p.point);
 
     RESTORE_VECTOR_REGISTERS();
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: curve25519 returned %d\n", ret);
+    fflush(stderr);
 #else
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Calling curve25519_smul_blind...\n");
+        fprintf(stderr, "[WOLFSSL-DEBUG]   private_key->k pointer = %p\n", private_key->k);
+        fprintf(stderr, "[WOLFSSL-DEBUG]   public_key->p.point pointer = %p\n", public_key->p.point);
+        fprintf(stderr, "[WOLFSSL-DEBUG]   o.point pointer = %p\n", o.point);
+        fprintf(stderr, "[WOLFSSL-DEBUG]   private_key->rng = %p\n", private_key->rng);
+        if (private_key->rng == NULL) {
+            fprintf(stderr, "[WOLFSSL-DEBUG]   WARNING: private_key->rng is NULL! This may cause failure!\n");
+        }
+        fflush(stderr);
     ret = curve25519_smul_blind(o.point, private_key->k, public_key->p.point,
                                 private_key->rng);
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: curve25519_smul_blind returned %d\n", ret);
+    fflush(stderr);
 #endif
     }
 #endif
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Computation completed, ret=%d\n", ret);
 #ifdef WOLFSSL_ECDHX_SHARED_NOT_ZERO
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: WOLFSSL_ECDHX_SHARED_NOT_ZERO check enabled\n");
+    fflush(stderr);
     if (ret == 0) {
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Checking if shared secret is zero...\n");
+        fflush(stderr);
         int i;
         byte t = 0;
         for (i = 0; i < CURVE25519_KEYSIZE; i++) {
             t |= o.point[i];
         }
+        fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Zero check: t=0x%02x\n", t);
+        fflush(stderr);
         if (t == 0) {
+            fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: ERROR - Shared secret is all zeros! Setting ret=ECC_OUT_OF_RANGE_E (%d)\n", ECC_OUT_OF_RANGE_E);
+            fflush(stderr);
             ret = ECC_OUT_OF_RANGE_E;
+        } else {
+            fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: Zero check passed (shared secret is not all zeros)\n");
+            fflush(stderr);
         }
     }
+#else
+    fprintf(stderr, "[WOLFSSL-DEBUG] wc_curve25519_shared_secret_ex: WOLFSSL_ECDHX_SHARED_NOT_ZERO check is NOT enabled\n");
+    fflush(stderr);
 #endif
     if (ret == 0) {
         curve25519_copy_point(out, o.point, endian);
