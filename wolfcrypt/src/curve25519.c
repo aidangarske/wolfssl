@@ -221,6 +221,17 @@ static int curve25519_smul_blind(byte* rp, const byte* n, const byte* p,
     int i;
     int cnt;
 
+    fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: ENTRY\n");
+    fprintf(stderr, "[WOLFSSL-DEBUG]   rp=%p, n=%p, p=%p, rng=%p\n", rp, n, p, rng);
+    if (n != NULL) {
+        fprintf(stderr, "[WOLFSSL-DEBUG]   n[0]=0x%02x, n[31]=0x%02x\n", n[0], n[31]);
+    }
+    if (p != NULL) {
+        fprintf(stderr, "[WOLFSSL-DEBUG]   p[0]=0x%02x, p[31]=0x%02x (MSB=%s)\n", 
+                p[0], p[31], (p[31] & 0x80) ? "SET" : "CLEAR");
+    }
+    fflush(stderr);
+
     SAVE_VECTOR_REGISTERS(return _svr_ret;);
 
     /* Generate random z. */
@@ -238,13 +249,22 @@ static int curve25519_smul_blind(byte* rp, const byte* n, const byte* p,
         }
     }
     if (cnt == WOLFSSL_CURVE25519_BLINDING_RAND_CNT) {
+        fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: ERROR - RNG failed to generate valid z after %d attempts\n", WOLFSSL_CURVE25519_BLINDING_RAND_CNT);
+        fflush(stderr);
         return RNG_FAILURE_E;
     }
+    fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: Generated random z successfully (cnt=%d)\n", cnt);
+    fflush(stderr);
 
     /* Generate 253 random bits. */
     ret = wc_RNG_GenerateBlock(rng, a, sizeof(a));
-    if (ret != 0)
+    if (ret != 0) {
+        fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: ERROR - Failed to generate random a, ret=%d\n", ret);
+        fflush(stderr);
         return ret;
+    }
+    fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: Generated random a successfully\n");
+    fflush(stderr);
     a[CURVE25519_KEYSIZE-1] &= 0x7f;
     /* k' = k ^ 2k ^ a */
     n_a[0] = n[0] ^ (byte)(n[0] << 1) ^ a[0];
@@ -256,10 +276,22 @@ static int curve25519_smul_blind(byte* rp, const byte* n, const byte* p,
         n_a[i] = b1 ^ b2 ^ b3;
     }
     /* Scalar multiple blinded scalar with blinding value. */
+    fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: About to call curve25519_blind...\n");
+    fprintf(stderr, "[WOLFSSL-DEBUG]   rp=%p, n_a=%p, a=%p, p=%p, rz=%p\n", rp, n_a, a, p, rz);
+    fprintf(stderr, "[WOLFSSL-DEBUG]   n_a[0]=0x%02x, n_a[31]=0x%02x\n", n_a[0], n_a[31]);
+    fprintf(stderr, "[WOLFSSL-DEBUG]   a[0]=0x%02x, a[31]=0x%02x (MSB=%s)\n", 
+            a[0], a[31], (a[31] & 0x80) ? "SET" : "CLEAR");
+    fprintf(stderr, "[WOLFSSL-DEBUG]   p[31]=0x%02x (MSB=%s)\n", 
+            p[31], (p[31] & 0x80) ? "SET" : "CLEAR");
+    fflush(stderr);
     ret = curve25519_blind(rp, n_a, a, p, rz);
+    fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: curve25519_blind returned %d\n", ret);
+    fflush(stderr);
 
     RESTORE_VECTOR_REGISTERS();
 
+    fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: EXIT returning %d\n", ret);
+    fflush(stderr);
     return ret;
 }
 #endif
