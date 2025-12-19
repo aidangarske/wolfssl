@@ -223,6 +223,14 @@ static int curve25519_smul_blind(byte* rp, const byte* n, const byte* p,
 
     fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: ENTRY\n");
     fprintf(stderr, "[WOLFSSL-DEBUG]   rp=%p, n=%p, p=%p, rng=%p\n", rp, n, p, rng);
+    
+    /* NULL pointer check */
+    if (rp == NULL || n == NULL || p == NULL || rng == NULL) {
+        fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: ERROR - NULL pointer detected! rp=%p, n=%p, p=%p, rng=%p\n", rp, n, p, rng);
+        fflush(stderr);
+        return ECC_BAD_ARG_E;
+    }
+    
     if (n != NULL) {
         fprintf(stderr, "[WOLFSSL-DEBUG]   n[0]=0x%02x, n[31]=0x%02x\n", n[0], n[31]);
     }
@@ -230,14 +238,30 @@ static int curve25519_smul_blind(byte* rp, const byte* n, const byte* p,
         fprintf(stderr, "[WOLFSSL-DEBUG]   p[0]=0x%02x, p[31]=0x%02x (MSB=%s)\n", 
                 p[0], p[31], (p[31] & 0x80) ? "SET" : "CLEAR");
     }
+    fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: All parameters validated, proceeding...\n");
     fflush(stderr);
 
-    SAVE_VECTOR_REGISTERS(return _svr_ret;);
+    fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: About to call SAVE_VECTOR_REGISTERS...\n");
+    fflush(stderr);
+    SAVE_VECTOR_REGISTERS(
+        fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: SAVE_VECTOR_REGISTERS failed, returning _svr_ret=%d\n", _svr_ret);
+        fflush(stderr);
+        return _svr_ret;
+    );
+    fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: After SAVE_VECTOR_REGISTERS, continuing...\n");
+    fflush(stderr);
 
     /* Generate random z. */
+    fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: Starting random z generation loop...\n");
+    fflush(stderr);
     for (cnt = 0; cnt < WOLFSSL_CURVE25519_BLINDING_RAND_CNT; cnt++) {
+        fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: RNG z generation attempt %d/%d\n", cnt+1, WOLFSSL_CURVE25519_BLINDING_RAND_CNT);
+        fflush(stderr);
         ret = wc_RNG_GenerateBlock(rng, rz, sizeof(rz));
         if (ret < 0) {
+            fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: ERROR - wc_RNG_GenerateBlock failed in z loop, ret=%d\n", ret);
+            fflush(stderr);
+            RESTORE_VECTOR_REGISTERS();
             return ret;
         }
         for (i = CURVE25519_KEYSIZE - 1; i >= 0; i--) {
@@ -245,8 +269,12 @@ static int curve25519_smul_blind(byte* rp, const byte* n, const byte* p,
                 break;
         }
         if ((i >= 0) || (rz[0] <= 0xec)) {
+            fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: Random z validation passed at attempt %d\n", cnt+1);
+            fflush(stderr);
             break;
         }
+        fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: Random z validation failed at attempt %d, continuing...\n", cnt+1);
+        fflush(stderr);
     }
     if (cnt == WOLFSSL_CURVE25519_BLINDING_RAND_CNT) {
         fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_smul_blind: ERROR - RNG failed to generate valid z after %d attempts\n", WOLFSSL_CURVE25519_BLINDING_RAND_CNT);

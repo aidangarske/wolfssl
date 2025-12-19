@@ -20,6 +20,7 @@
  */
 
 #include <wolfssl/wolfcrypt/libwolfssl_sources.h>
+#include <stdio.h>  /* For fprintf debug output */
 
  /* Based On Daniel J Bernstein's curve25519 Public Domain ref10 work. */
 
@@ -195,6 +196,19 @@ int curve25519_blind(byte* q, const byte* n, const byte* mask, const byte* p,
   unsigned int pos;
   unsigned int b;
 
+  fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_blind: ENTRY\n");
+  fprintf(stderr, "[WOLFSSL-DEBUG]   q=%p, n=%p, mask=%p, p=%p, rz=%p\n", q, n, mask, p, rz);
+  if (q == NULL || n == NULL || mask == NULL || p == NULL || rz == NULL) {
+      fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_blind: ERROR - NULL pointer detected!\n");
+      fflush(stderr);
+      return ECC_BAD_ARG_E;
+  }
+  if (p != NULL) {
+      fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_blind: p[31]=0x%02x (MSB=%s)\n", 
+              p[31], (p[31] & 0x80) ? "SET" : "CLEAR");
+  }
+  fflush(stderr);
+
   fe_frombytes(x1,p);
   fe_1(x2);
   fe_0(z2);
@@ -246,6 +260,8 @@ int curve25519_blind(byte* q, const byte* n, const byte* mask, const byte* p,
   fe_mul(x2,x2,z2);
   fe_tobytes(q,x2);
 
+  fprintf(stderr, "[WOLFSSL-DEBUG] curve25519_blind: EXIT returning 0\n");
+  fflush(stderr);
   return 0;
 }
 #endif
