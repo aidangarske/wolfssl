@@ -1410,7 +1410,9 @@ int wc_RNG_GenerateBlock(WC_RNG* rng, byte* output, word32 sz)
                 fprintf(stderr, "[RNG-DEBUG]     Status is DRBG_NOT_INIT, attempting to initialize RNG...\n");
                 fflush(stderr);
                 /* Save heap and devId before initialization (since _InitRng clears the structure) */
-                void* saved_heap = rng->heap;
+                /* For uninitialized RNG, use NULL as heap to avoid using potentially garbage pointer */
+                /* Only use rng->heap if RNG was previously initialized (status would not be DRBG_NOT_INIT) */
+                void* saved_heap = NULL;  /* Safe default for uninitialized RNG */
                 int saved_devId = INVALID_DEVID;
 #if defined(WOLFSSL_ASYNC_CRYPT) || defined(WOLF_CRYPTO_CB)
                 saved_devId = rng->devId;
@@ -1425,8 +1427,10 @@ int wc_RNG_GenerateBlock(WC_RNG* rng, byte* output, word32 sz)
                 if (init_ret == 0 && rng->status == DRBG_OK && rng->drbg != NULL) {
                     fprintf(stderr, "[RNG-DEBUG]     RNG initialization SUCCESS - status=%d, drbg=%p\n", 
                             rng->status, rng->drbg);
+                    fprintf(stderr, "[RNG-DEBUG]     RNG just initialized with fresh seed, skipping re-seed, proceeding with generation\n");
                     fflush(stderr);
-                    /* RNG is now initialized, continue with generation */
+                    /* RNG is now initialized and ready, skip re-seed and continue with generation */
+                    /* Status is already DRBG_OK, proceed directly to generation below */
                 } else {
                     fprintf(stderr, "[RNG-DEBUG]     RNG initialization FAILED - status=%d, drbg=%p, init_ret=%d\n",
                             rng->status, rng->drbg, init_ret);
@@ -1440,32 +1444,42 @@ int wc_RNG_GenerateBlock(WC_RNG* rng, byte* output, word32 sz)
                 fflush(stderr);
                 return RNG_FAILURE_E;
             }
-        }
-        fprintf(stderr, "[RNG-DEBUG]     Attempting recovery via PollAndReSeed...\n");
-        fflush(stderr);
-        /* Try to recover by re-seeding the RNG */
-        int reseed_ret = PollAndReSeed(rng);
-        fprintf(stderr, "[RNG-DEBUG]     PollAndReSeed returned %d (DRBG_SUCCESS=%d, DRBG_CONT_FAILURE=%d)\n",
-                reseed_ret, DRBG_SUCCESS, DRBG_CONT_FAILURE);
-        fflush(stderr);
-        if (reseed_ret == DRBG_SUCCESS) {
-            rng->status = DRBG_OK;
-            fprintf(stderr, "[RNG-DEBUG]     Recovery SUCCESS - RNG status set to DRBG_OK, continuing with generation\n");
-            fflush(stderr);
-            /* Continue with generation */
-        } else if (reseed_ret == DRBG_CONT_FAILURE) {
-            /* Continuous failure detected during recovery */
-            rng->status = DRBG_CONT_FAILED;
-            fprintf(stderr, "[RNG-DEBUG]     Recovery detected DRBG_CONT_FAILURE, setting status to DRBG_CONT_FAILED\n");
-            fprintf(stderr, "[RNG-DEBUG]     Returning DRBG_CONT_FIPS_E\n");
-            fflush(stderr);
-            return DRBG_CONT_FIPS_E;
         } else {
-            /* Recovery failed, return error */
-            fprintf(stderr, "[RNG-DEBUG]     Recovery FAILED with code %d, returning RNG_FAILURE_E\n", reseed_ret);
+            /* DRBG exists but status is not OK, attempt recovery via re-seed */
+            fprintf(stderr, "[RNG-DEBUG]     DRBG exists but status not OK, attempting recovery via PollAndReSeed...\n");
+            fflush(stderr);
+            /* Try to recover by re-seeding the RNG */
+            int reseed_ret = PollAndReSeed(rng);
+            fprintf(stderr, "[RNG-DEBUG]     PollAndReSeed returned %d (DRBG_SUCCESS=%d, DRBG_CONT_FAILURE=%d)\n",
+                    reseed_ret, DRBG_SUCCESS, DRBG_CONT_FAILURE);
+            fflush(stderr);
+            if (reseed_ret == DRBG_SUCCESS) {
+                rng->status = DRBG_OK;
+                fprintf(stderr, "[RNG-DEBUG]     Recovery SUCCESS - RNG status set to DRBG_OK, continuing with generation\n");
+                fflush(stderr);
+                /* Continue with generation */
+            } else if (reseed_ret == DRBG_CONT_FAILURE) {
+                /* Continuous failure detected during recovery */
+                rng->status = DRBG_CONT_FAILED;
+                fprintf(stderr, "[RNG-DEBUG]     Recovery detected DRBG_CONT_FAILURE, setting status to DRBG_CONT_FAILED\n");
+                fprintf(stderr, "[RNG-DEBUG]     Returning DRBG_CONT_FIPS_E\n");
+                fflush(stderr);
+                return DRBG_CONT_FIPS_E;
+            } else {
+                /* Recovery failed, return error */
+                fprintf(stderr, "[RNG-DEBUG]     Recovery FAILED with code %d, returning RNG_FAILURE_E\n", reseed_ret);
+                fflush(stderr);
+                return RNG_FAILURE_E;
+            }
+        }
+        /* After recovery/initialization, check status again */
+        if (rng->status != DRBG_OK) {
+            fprintf(stderr, "[RNG-DEBUG]     After recovery attempt, status is still not OK (%d), returning RNG_FAILURE_E\n", rng->status);
             fflush(stderr);
             return RNG_FAILURE_E;
         }
+        fprintf(stderr, "[RNG-DEBUG]   RNG recovery/initialization complete, status is now OK, proceeding with generation\n");
+        fflush(stderr);
     } else {
         fprintf(stderr, "[RNG-DEBUG]   RNG status is OK (DRBG_OK), proceeding with generation\n");
         fflush(stderr);
