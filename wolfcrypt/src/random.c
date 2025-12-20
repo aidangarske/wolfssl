@@ -1410,27 +1410,35 @@ int wc_RNG_GenerateBlock(WC_RNG* rng, byte* output, word32 sz)
                 fprintf(stderr, "[RNG-DEBUG]     Status is DRBG_NOT_INIT, attempting to initialize RNG...\n");
                 fflush(stderr);
                 /* Save heap and devId before initialization (since _InitRng clears the structure) */
-                /* For uninitialized RNG, use NULL as heap to avoid using potentially garbage pointer */
-                /* Only use rng->heap if RNG was previously initialized (status would not be DRBG_NOT_INIT) */
-                void* saved_heap = NULL;  /* Safe default for uninitialized RNG */
+                /* Try to preserve any existing heap pointer if it looks valid (not obviously garbage) */
+                /* For uninitialized RNG, rng->heap might be garbage, so we use NULL as safe default */
+                /* However, if the RNG is embedded in a key structure, the key's heap might be accessible
+                 * through the RNG structure if it was set before. Since we can't reliably detect this,
+                 * we use NULL which will use the default malloc/free, ensuring consistency. */
+                void* saved_heap = NULL;  /* Use NULL for default heap to ensure consistent malloc/free */
                 int saved_devId = INVALID_DEVID;
 #if defined(WOLFSSL_ASYNC_CRYPT) || defined(WOLF_CRYPTO_CB)
+                /* Try to preserve devId if it was set (even for uninitialized RNG, devId might be valid) */
                 saved_devId = rng->devId;
 #endif
-                fprintf(stderr, "[RNG-DEBUG]     Saved heap=%p, devId=%d before initialization\n", saved_heap, saved_devId);
+                fprintf(stderr, "[RNG-DEBUG]     Saved heap=%p (using NULL for default malloc), devId=%d before initialization\n", saved_heap, saved_devId);
                 fflush(stderr);
-                /* Try to initialize the RNG using saved heap and devId */
+                /* Try to initialize the RNG using saved heap (NULL = default malloc) and devId */
+                /* Using NULL for heap ensures that allocation and deallocation use the same heap context */
                 int init_ret = wc_InitRng_ex(rng, saved_heap, saved_devId);
                 fprintf(stderr, "[RNG-DEBUG]     wc_InitRng_ex returned %d (0=success)\n", init_ret);
-                fprintf(stderr, "[RNG-DEBUG]     After init: status=%d, drbg=%p\n", rng->status, rng->drbg);
+                fprintf(stderr, "[RNG-DEBUG]     After init: status=%d, drbg=%p, rng->heap=%p\n", rng->status, rng->drbg, rng->heap);
                 fflush(stderr);
                 if (init_ret == 0 && rng->status == DRBG_OK && rng->drbg != NULL) {
-                    fprintf(stderr, "[RNG-DEBUG]     RNG initialization SUCCESS - status=%d, drbg=%p\n", 
-                            rng->status, rng->drbg);
+                    fprintf(stderr, "[RNG-DEBUG]     RNG initialization SUCCESS - status=%d, drbg=%p, heap=%p\n", 
+                            rng->status, rng->drbg, rng->heap);
                     fprintf(stderr, "[RNG-DEBUG]     RNG just initialized with fresh seed, skipping re-seed, proceeding with generation\n");
                     fflush(stderr);
                     /* RNG is now initialized and ready, skip re-seed and continue with generation */
                     /* Status is already DRBG_OK, proceed directly to generation below */
+                    /* Note: The DRBG memory allocated here will be freed when wc_FreeRng is called
+                     * on this RNG. Since rng->heap is set to NULL (default malloc), wc_FreeRng
+                     * will use NULL heap context for XFREE, ensuring consistency. */
                 } else {
                     fprintf(stderr, "[RNG-DEBUG]     RNG initialization FAILED - status=%d, drbg=%p, init_ret=%d\n",
                             rng->status, rng->drbg, init_ret);
