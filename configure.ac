@@ -9581,6 +9581,43 @@ if test "$ENABLED_CRYPTOCB_UTILS" != "no"; then
 fi
 
 
+# wolfKSM (Key Store Manager) Integration
+AC_ARG_ENABLE([ksm],
+    [AS_HELP_STRING([--enable-ksm],[Enable wolfKSM key store manager integration (default: disabled)])],
+    [ ENABLED_KSM=$enableval ],
+    [ ENABLED_KSM=no ]
+    )
+
+if test "$ENABLED_KSM" = "yes"
+then
+    AC_MSG_NOTICE([Enabling wolfKSM key store manager])
+
+    # Check for wolfksm using pkg-config
+    PKG_CHECK_MODULES([WOLFKSM], [wolfksm >= 0.1.0],
+        [
+            AM_CFLAGS="$AM_CFLAGS $WOLFKSM_CFLAGS -DHAVE_WOLFKSM"
+            LIBS="$LIBS $WOLFKSM_LIBS"
+        ],
+        [
+            # Fallback if pkg-config doesn't find it
+            AC_CHECK_HEADER([wolfksm/ksm.h], [],
+                [AC_MSG_ERROR([wolfKSM header not found. Please install wolfKSM or use --with-wolfksm=PATH])])
+            AC_CHECK_LIB([wolfksm], [ksm_init],
+                [
+                    AM_CFLAGS="$AM_CFLAGS -DHAVE_WOLFKSM"
+                    LIBS="$LIBS -lwolfksm"
+                ],
+                [AC_MSG_ERROR([wolfKSM library not found])])
+        ])
+
+    # KSM requires cryptocb to be enabled
+    if test "$ENABLED_CRYPTOCB" = "no"; then
+        ENABLED_CRYPTOCB=yes
+        AC_MSG_NOTICE([Automatically enabling crypto callbacks for wolfKSM])
+    fi
+fi
+
+
 # Asynchronous Crypto
 AC_ARG_ENABLE([asynccrypt],
     [AS_HELP_STRING([--enable-asynccrypt],[Enable Asynchronous Crypto (default: disabled)])],
@@ -11102,6 +11139,7 @@ AM_CONDITIONAL([BUILD_WOLFCRYPT_TESTS_LIBS],[test "x$ENABLED_CRYPT_TESTS_LIBS" =
 AM_CONDITIONAL([BUILD_LIBZ],[test "x$ENABLED_LIBZ" = "xyes" || test "x$ENABLED_USERSETTINGS" = "xyes"])
 AM_CONDITIONAL([BUILD_PKCS11],[test "x$ENABLED_PKCS11" = "xyes" || test "x$ENABLED_USERSETTINGS" = "xyes"])
 AM_CONDITIONAL([BUILD_PKCS12],[test "x$ENABLED_PKCS12" = "xyes" || test "x$ENABLED_USERSETTINGS" = "xyes"])
+AM_CONDITIONAL([BUILD_KSM],[test "x$ENABLED_KSM" = "xyes"])
 AM_CONDITIONAL([BUILD_PKCS8],[test "x$ENABLED_PKCS8" = "xyes" || test "x$ENABLED_USERSETTINGS" = "xyes"])
 AM_CONDITIONAL([BUILD_CAVIUM],[test "x$ENABLED_CAVIUM" = "xyes"])
 AM_CONDITIONAL([BUILD_CAVIUM_V],[test "x$ENABLED_CAVIUM_V" = "xyes"])
