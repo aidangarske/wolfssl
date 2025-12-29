@@ -1,0 +1,16 @@
+# vim:ft=automake
+# included from Top Level Makefile.am
+# All paths should be given relative to the root
+
+
+if BUILD_KSM
+noinst_PROGRAMS += examples/ksm/ksm_implicit_example
+examples_ksm_ksm_implicit_example_SOURCES      = examples/ksm/ksm_implicit_example.c
+examples_ksm_ksm_implicit_example_LDADD        = src/libwolfssl@LIBSUFFIX@.la $(LIB_STATIC_ADD) $(WOLFKSM_LIBS)
+examples_ksm_ksm_implicit_example_DEPENDENCIES = src/libwolfssl@LIBSUFFIX@.la
+examples_ksm_ksm_implicit_example_CFLAGS       = $(AM_CFLAGS) $(WOLFKSM_CFLAGS)
+endif
+
+dist_example_DATA+= examples/ksm/ksm_implicit_example.c
+DISTCLEANFILES+= examples/ksm/.libs/ksm_implicit_example
+
