@@ -43,8 +43,16 @@
 #include <wolfksm/ksm.h>
 #include <wolfksm/ksm_error.h>
 
+#ifdef HAVE_CURVE448
+#include <wolfssl/wolfcrypt/curve448.h>
+#endif
+#ifdef HAVE_ED448
+#include <wolfssl/wolfcrypt/ed448.h>
+#endif
+
 /* Track KSM initialization state */
 static int g_ksm_initialized = 0;
+static int g_cryptocb_initialized = 0;
 
 /* ============================================================
  * Error Code Mapping
@@ -106,8 +114,8 @@ typedef struct {
 } RsaPolicy;
 
 /* Policy registries (static storage) */
-#define MAX_ECC_POLICIES 4
-#define MAX_RSA_POLICIES 2
+#define MAX_ECC_POLICIES 8  /* Support all NIST curves + secp256k1 */
+#define MAX_RSA_POLICIES 4  /* Support 1024, 2048, 3072, 4096 */
 static EccPolicy g_eccPolicies[MAX_ECC_POLICIES];
 static RsaPolicy g_rsaPolicies[MAX_RSA_POLICIES];
 static int g_numEccPolicies = 0;
@@ -291,6 +299,12 @@ int wolfKSM_SetCryptoDevCb(int* pDevId)
 {
     int rc;
     int devId = WOLFKSM_DEVID;
+
+    /* Initialize crypto callback device table once */
+    if (!g_cryptocb_initialized) {
+        wc_CryptoCb_Init();
+        g_cryptocb_initialized = 1;
+    }
 
     /* Initialize KSM if not already done */
     if (!g_ksm_initialized) {
@@ -542,8 +556,14 @@ int wolfKSM_RsaSign(const byte* in, word32 inLen,
 
         /* Map size to KSM key type */
         switch (keySize) {
+            case 1024:
+                type = KSM_TYPE_RSA_1024;
+                break;
             case 2048:
                 type = KSM_TYPE_RSA_2048;
+                break;
+            case 3072:
+                type = KSM_TYPE_RSA_3072;
                 break;
             case 4096:
                 type = KSM_TYPE_RSA_4096;
@@ -608,8 +628,14 @@ int wolfKSM_RsaDecrypt(const byte* in, word32 inLen,
 
         /* Map size to KSM key type */
         switch (keySize) {
+            case 1024:
+                type = KSM_TYPE_RSA_1024;
+                break;
             case 2048:
                 type = KSM_TYPE_RSA_2048;
+                break;
+            case 3072:
+                type = KSM_TYPE_RSA_3072;
                 break;
             case 4096:
                 type = KSM_TYPE_RSA_4096;
@@ -673,11 +699,23 @@ int wolfKSM_MakeEccKey(ecc_key* key, WC_RNG* rng, int keysize, int curveId,
 
     /* Map curve ID to KSM key type */
     switch (curveId) {
+        case ECC_SECP192R1:
+            type = KSM_TYPE_ECC_P192;
+            break;
+        case ECC_SECP224R1:
+            type = KSM_TYPE_ECC_P224;
+            break;
         case ECC_SECP256R1:
             type = KSM_TYPE_ECC_P256;
             break;
         case ECC_SECP384R1:
             type = KSM_TYPE_ECC_P384;
+            break;
+        case ECC_SECP521R1:
+            type = KSM_TYPE_ECC_P521;
+            break;
+        case ECC_SECP256K1:
+            type = KSM_TYPE_ECC_SECP256K1;
             break;
         default:
             WOLFSSL_MSG("wolfKSM: Unsupported ECC curve");
@@ -746,8 +784,14 @@ int wolfKSM_MakeRsaKey(RsaKey* key, int size, long e, WC_RNG* rng,
 
     /* Map size to KSM key type */
     switch (size) {
+        case 1024:
+            type = KSM_TYPE_RSA_1024;
+            break;
         case 2048:
             type = KSM_TYPE_RSA_2048;
+            break;
+        case 3072:
+            type = KSM_TYPE_RSA_3072;
             break;
         case 4096:
             type = KSM_TYPE_RSA_4096;
@@ -780,6 +824,17 @@ int wolfKSM_MakeRsaKey(RsaKey* key, int size, long e, WC_RNG* rng,
         return rc;
     }
 
+    /* Set key type to RSA (required for operations) */
+    key->type = RSA_PUBLIC;
+
+    /* Set RNG for encryption operations (required for padding) */
+    rc = wc_RsaSetRNG(key, rng);
+    if (rc != 0) {
+        ksm_destroy(id);
+        WOLFSSL_MSG("wolfKSM: wc_RsaSetRNG failed");
+        return rc;
+    }
+
     /* Tag key as belonging to KSM device */
     key->devId = WOLFKSM_DEVID;
 
@@ -790,6 +845,228 @@ int wolfKSM_MakeRsaKey(RsaKey* key, int size, long e, WC_RNG* rng,
     return 0;
 }
 #endif /* !NO_RSA */
+
+/* ============================================================
+ * Ed25519 Implicit Operations
+ * ============================================================ */
+
+#ifdef HAVE_ED25519
+/* Static policy for Ed25519 (single default key) */
+static struct {
+    int enabled;
+    ksm_key_id ksmId;
+} g_ed25519_policy = {0, KSM_KEY_INVALID};
+
+WOLFSSL_API int wolfKSM_Ed25519Sign(const byte* msg, word32 msgLen,
+                                     byte* sig, word32* sigLen)
+{
+    int rc;
+
+    WOLFSSL_ENTER("wolfKSM_Ed25519Sign");
+
+    if (msg == NULL || sig == NULL || sigLen == NULL) {
+        return BAD_FUNC_ARG;
+    }
+
+    /* Ensure KSM is initialized */
+    if (!g_ksm_initialized) {
+        rc = wolfKSM_SetCryptoDevCb(NULL);
+        if (rc != 0) {
+            return rc;
+        }
+    }
+
+    /* Auto-generate key if not created yet */
+    if (!g_ed25519_policy.enabled) {
+        rc = ksm_generate(KSM_TYPE_ED25519, &g_ed25519_policy.ksmId);
+        if (rc != KSM_SUCCESS) {
+            WOLFSSL_MSG("wolfKSM: Ed25519 key generation failed");
+            return ksm_to_wc_error(rc);
+        }
+        g_ed25519_policy.enabled = 1;
+        WOLFSSL_MSG("wolfKSM: Ed25519 key auto-generated");
+    }
+
+    /* Sign with KSM */
+    rc = ksm_sign(g_ed25519_policy.ksmId, msg, msgLen, sig, sigLen);
+    if (rc != KSM_SUCCESS) {
+        WOLFSSL_MSG("wolfKSM: ksm_sign (Ed25519) failed");
+        return ksm_to_wc_error(rc);
+    }
+
+    WOLFSSL_MSG("wolfKSM: Ed25519 sign successful");
+    return 0;
+}
+#endif /* HAVE_ED25519 */
+
+/* ============================================================
+ * X25519 Implicit Operations
+ * ============================================================ */
+
+#ifdef HAVE_CURVE25519
+/* Static policy for X25519 (single default key) */
+static struct {
+    int enabled;
+    ksm_key_id ksmId;
+} g_x25519_policy = {0, KSM_KEY_INVALID};
+
+WOLFSSL_API int wolfKSM_X25519SharedSecret(const byte* peerPub, word32 peerLen,
+                                            byte* secret, word32* secretLen)
+{
+    int rc;
+
+    WOLFSSL_ENTER("wolfKSM_X25519SharedSecret");
+
+    if (peerPub == NULL || secret == NULL || secretLen == NULL) {
+        return BAD_FUNC_ARG;
+    }
+
+    if (peerLen != CURVE25519_KEYSIZE) {
+        WOLFSSL_MSG("wolfKSM: Invalid X25519 peer public key length");
+        return BAD_FUNC_ARG;
+    }
+
+    /* Ensure KSM is initialized */
+    if (!g_ksm_initialized) {
+        rc = wolfKSM_SetCryptoDevCb(NULL);
+        if (rc != 0) {
+            return rc;
+        }
+    }
+
+    /* Auto-generate key if not created yet */
+    if (!g_x25519_policy.enabled) {
+        rc = ksm_generate(KSM_TYPE_X25519, &g_x25519_policy.ksmId);
+        if (rc != KSM_SUCCESS) {
+            WOLFSSL_MSG("wolfKSM: X25519 key generation failed");
+            return ksm_to_wc_error(rc);
+        }
+        g_x25519_policy.enabled = 1;
+        WOLFSSL_MSG("wolfKSM: X25519 key auto-generated");
+    }
+
+    /* Perform ECDH with KSM */
+    rc = ksm_ecdh(g_x25519_policy.ksmId, peerPub, peerLen, secret, secretLen);
+    if (rc != KSM_SUCCESS) {
+        WOLFSSL_MSG("wolfKSM: ksm_ecdh (X25519) failed");
+        return ksm_to_wc_error(rc);
+    }
+
+    WOLFSSL_MSG("wolfKSM: X25519 ECDH successful");
+    return 0;
+}
+#endif /* HAVE_CURVE25519 */
+
+/* ============================================================
+ * Ed448 Implicit Operations
+ * ============================================================ */
+
+#ifdef HAVE_ED448
+/* Static policy for Ed448 (single default key) */
+static struct {
+    int enabled;
+    ksm_key_id ksmId;
+} g_ed448_policy = {0, KSM_KEY_INVALID};
+
+WOLFSSL_API int wolfKSM_Ed448Sign(const byte* msg, word32 msgLen,
+                                   byte* sig, word32* sigLen)
+{
+    int rc;
+
+    WOLFSSL_ENTER("wolfKSM_Ed448Sign");
+
+    if (msg == NULL || sig == NULL || sigLen == NULL) {
+        return BAD_FUNC_ARG;
+    }
+
+    /* Ensure KSM is initialized */
+    if (!g_ksm_initialized) {
+        rc = wolfKSM_SetCryptoDevCb(NULL);
+        if (rc != 0) {
+            return rc;
+        }
+    }
+
+    /* Auto-generate key if not created yet */
+    if (!g_ed448_policy.enabled) {
+        rc = ksm_generate(KSM_TYPE_ED448, &g_ed448_policy.ksmId);
+        if (rc != KSM_SUCCESS) {
+            WOLFSSL_MSG("wolfKSM: Ed448 key generation failed");
+            return ksm_to_wc_error(rc);
+        }
+        g_ed448_policy.enabled = 1;
+        WOLFSSL_MSG("wolfKSM: Ed448 key auto-generated");
+    }
+
+    /* Sign with KSM */
+    rc = ksm_sign(g_ed448_policy.ksmId, msg, msgLen, sig, sigLen);
+    if (rc != KSM_SUCCESS) {
+        WOLFSSL_MSG("wolfKSM: ksm_sign (Ed448) failed");
+        return ksm_to_wc_error(rc);
+    }
+
+    WOLFSSL_MSG("wolfKSM: Ed448 sign successful");
+    return 0;
+}
+#endif /* HAVE_ED448 */
+
+/* ============================================================
+ * X448 Implicit Operations
+ * ============================================================ */
+
+#ifdef HAVE_CURVE448
+/* Static policy for X448 (single default key) */
+static struct {
+    int enabled;
+    ksm_key_id ksmId;
+} g_x448_policy = {0, KSM_KEY_INVALID};
+
+WOLFSSL_API int wolfKSM_X448SharedSecret(const byte* peerPub, word32 peerLen,
+                                          byte* secret, word32* secretLen)
+{
+    int rc;
+
+    WOLFSSL_ENTER("wolfKSM_X448SharedSecret");
+
+    if (peerPub == NULL || secret == NULL || secretLen == NULL) {
+        return BAD_FUNC_ARG;
+    }
+
+    if (peerLen != CURVE448_KEY_SIZE) {
+        WOLFSSL_MSG("wolfKSM: Invalid X448 peer public key length");
+        return BAD_FUNC_ARG;
+    }
+
+    /* Ensure KSM is initialized */
+    if (!g_ksm_initialized) {
+        rc = wolfKSM_SetCryptoDevCb(NULL);
+        if (rc != 0) {
+            return rc;
+        }
+    }
+
+    /* Auto-generate key if not created yet */
+    if (!g_x448_policy.enabled) {
+        rc = ksm_generate(KSM_TYPE_X448, &g_x448_policy.ksmId);
+        if (rc != KSM_SUCCESS) {
+            WOLFSSL_MSG("wolfKSM: X448 key generation failed");
+            return ksm_to_wc_error(rc);
+        }
+        g_x448_policy.enabled = 1;
+        WOLFSSL_MSG("wolfKSM: X448 key auto-generated");
+    }
+
+    /* Perform ECDH with KSM */
+    rc = ksm_ecdh(g_x448_policy.ksmId, peerPub, peerLen, secret, secretLen);
+    if (rc != KSM_SUCCESS) {
+        WOLFSSL_MSG("wolfKSM: ksm_ecdh (X448) failed");
+        return ksm_to_wc_error(rc);
+    }
+
+    WOLFSSL_MSG("wolfKSM: X448 ECDH successful");
+    return 0;
+}
+#endif /* HAVE_CURVE448 */
 
 #endif /* WOLF_CRYPTO_CB */
 #endif /* HAVE_WOLFKSM */

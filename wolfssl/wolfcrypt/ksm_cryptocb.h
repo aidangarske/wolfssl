@@ -235,6 +235,86 @@ WOLFSSL_API int wolfKSM_MakeRsaKey(RsaKey* key, int size, long e,
                                     WC_RNG* rng, ksm_key_id* ksmId);
 #endif /* !NO_RSA */
 
+/* ============================================================
+ * Ed25519 Operations (Fully Implicit)
+ * ============================================================ */
+
+#ifdef HAVE_ED25519
+/**
+ * Ed25519 sign using KSM-managed key (fully implicit).
+ * No key management required.
+ *
+ * @param msg Message to sign
+ * @param msgLen Message length
+ * @param sig Signature output buffer
+ * @param sigLen [in/out] Buffer size, receives signature size
+ *
+ * @return 0 on success, negative on error
+ */
+WOLFSSL_API int wolfKSM_Ed25519Sign(const byte* msg, word32 msgLen,
+                                     byte* sig, word32* sigLen);
+#endif /* HAVE_ED25519 */
+
+/* ============================================================
+ * X25519 Operations (Fully Implicit)
+ * ============================================================ */
+
+#ifdef HAVE_CURVE25519
+/**
+ * X25519 key exchange using KSM-managed key (fully implicit).
+ * No key management required - just provide peer's public key.
+ *
+ * @param peerPub Peer's public key (32 bytes)
+ * @param peerLen Peer's public key length (must be 32)
+ * @param secret Shared secret output buffer
+ * @param secretLen [in/out] Buffer size, receives secret size (32 bytes)
+ *
+ * @return 0 on success, negative on error
+ */
+WOLFSSL_API int wolfKSM_X25519SharedSecret(const byte* peerPub, word32 peerLen,
+                                            byte* secret, word32* secretLen);
+#endif /* HAVE_CURVE25519 */
+
+/* ============================================================
+ * Ed448 Operations (Fully Implicit)
+ * ============================================================ */
+
+#ifdef HAVE_ED448
+/**
+ * Ed448 sign using KSM-managed key (fully implicit).
+ * No key management required.
+ *
+ * @param msg Message to sign
+ * @param msgLen Message length
+ * @param sig Signature output buffer
+ * @param sigLen [in/out] Buffer size, receives signature size
+ *
+ * @return 0 on success, negative on error
+ */
+WOLFSSL_API int wolfKSM_Ed448Sign(const byte* msg, word32 msgLen,
+                                   byte* sig, word32* sigLen);
+#endif /* HAVE_ED448 */
+
+/* ============================================================
+ * X448 Operations (Fully Implicit)
+ * ============================================================ */
+
+#ifdef HAVE_CURVE448
+/**
+ * X448 key exchange using KSM-managed key (fully implicit).
+ * No key management required - just provide peer's public key.
+ *
+ * @param peerPub Peer's public key (56 bytes)
+ * @param peerLen Peer's public key length (must be 56)
+ * @param secret Shared secret output buffer
+ * @param secretLen [in/out] Buffer size, receives secret size (64 bytes HKDF output)
+ *
+ * @return 0 on success, negative on error
+ */
+WOLFSSL_API int wolfKSM_X448SharedSecret(const byte* peerPub, word32 peerLen,
+                                          byte* secret, word32* secretLen);
+#endif /* HAVE_CURVE448 */
+
 #ifdef __cplusplus
 }
 #endif

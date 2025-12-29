@@ -251,3 +251,7 @@ if BUILD_RISCV_ASM
 nobase_include_HEADERS+= wolfssl/wolfcrypt/port/riscv/riscv-64-asm.h
 endif
 
+if BUILD_KSM
+nobase_include_HEADERS+= wolfssl/wolfcrypt/ksm_cryptocb.h
+endif
+
