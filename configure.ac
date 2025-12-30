@@ -9597,6 +9597,15 @@ then
         [
             AM_CFLAGS="$AM_CFLAGS $WOLFKSM_CFLAGS -DHAVE_WOLFKSM"
             LIBS="$LIBS $WOLFKSM_LIBS"
+            # Extract library paths and add to LDFLAGS for rpath
+            for flag in $WOLFKSM_LIBS; do
+                case $flag in
+                    -L*)
+                        libdir="${flag#-L}"
+                        LDFLAGS="$LDFLAGS -Wl,-rpath,$libdir"
+                        ;;
+                esac
+            done
         ],
         [
             # Fallback if pkg-config doesn't find it

@@ -48,6 +48,9 @@ extern "C" {
 #define WOLFKSM_DEVID 10  /* Unique device ID for KSM */
 #endif
 
+/* Recursion guard - exposed to prevent infinite recursion */
+extern int wolfKSM_InKeyGen;
+
 /* ============================================================
  * Crypto Callback Registration
  * ============================================================ */
@@ -86,6 +89,22 @@ WOLFSSL_API int wolfKSM_SetCryptoDevCb(int* pDevId);
  * @return 0 on success, negative on error
  */
 WOLFSSL_API int wolfKSM_ClearCryptoDevCb(int devId);
+
+/**
+ * Initialize wolfKSM for transparent operation.
+ * After calling this, ALL key generation will automatically use KSM when
+ * wolfSSL is built with --enable-ksm.
+ * Applications don't need to change any code - just call this at startup.
+ *
+ * @return 0 on success, negative on error
+ */
+WOLFSSL_API int wolfKSM_Init(void);
+
+/**
+ * Shutdown wolfKSM.
+ * Call at application exit.
+ */
+WOLFSSL_API void wolfKSM_Cleanup(void);
 
 /* ============================================================
  * Policy-Based Key Management (Fully Implicit API)

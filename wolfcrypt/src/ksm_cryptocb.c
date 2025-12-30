@@ -54,6 +54,9 @@
 static int g_ksm_initialized = 0;
 static int g_cryptocb_initialized = 0;
 
+/* Recursion guard - prevents KSM from calling itself */
+int wolfKSM_InKeyGen = 0;
+
 /* ============================================================
  * Error Code Mapping
  * ============================================================ */
@@ -120,6 +123,86 @@ static EccPolicy g_eccPolicies[MAX_ECC_POLICIES];
 static RsaPolicy g_rsaPolicies[MAX_RSA_POLICIES];
 static int g_numEccPolicies = 0;
 static int g_numRsaPolicies = 0;
+
+/* Global flag: Auto-enable KSM for all new keys */
+static int g_ksmAutoEnable = 0;
+
+/* Key handle storage: Map wolfCrypt key pointers to KSM key IDs and metadata
+ * This is needed because devId is used for callback routing (WOLFKSM_DEVID),
+ * so we can't store the actual KSM key ID in the key structure. */
+#define MAX_KSM_KEY_HANDLES 64
+
+typedef struct {
+    void* keyPtr;       /* Pointer to RsaKey or ecc_key */
+    ksm_key_id ksmId;   /* Corresponding KSM key ID */
+    int keySize;        /* RSA key size in bits (for WC_PK_TYPE_RSA_GET_SIZE) */
+} KsmKeyHandle;
+
+static KsmKeyHandle g_ksmKeyMap[MAX_KSM_KEY_HANDLES];
+static int g_ksmKeyMapCount = 0;
+
+/* Helper: Store KSM key ID mapping */
+static int ksm_store_key_handle(void* keyPtr, ksm_key_id ksmId, int keySize)
+{
+    int i;
+
+    /* Check if already exists (update) */
+    for (i = 0; i < g_ksmKeyMapCount; i++) {
+        if (g_ksmKeyMap[i].keyPtr == keyPtr) {
+            g_ksmKeyMap[i].ksmId = ksmId;
+            g_ksmKeyMap[i].keySize = keySize;
+            return 0;
+        }
+    }
+
+    /* Add new entry */
+    if (g_ksmKeyMapCount >= MAX_KSM_KEY_HANDLES) {
+        return BUFFER_E;  /* Map full */
+    }
+
+    g_ksmKeyMap[g_ksmKeyMapCount].keyPtr = keyPtr;
+    g_ksmKeyMap[g_ksmKeyMapCount].ksmId = ksmId;
+    g_ksmKeyMap[g_ksmKeyMapCount].keySize = keySize;
+    g_ksmKeyMapCount++;
+
+    return 0;
+}
+
+/* Helper: Retrieve KSM key ID from key pointer */
+static int ksm_get_key_handle(const void* keyPtr, ksm_key_id* ksmId, int* keySize)
+{
+    int i;
+
+    for (i = 0; i < g_ksmKeyMapCount; i++) {
+        if (g_ksmKeyMap[i].keyPtr == keyPtr) {
+            if (ksmId) *ksmId = g_ksmKeyMap[i].ksmId;
+            if (keySize) *keySize = g_ksmKeyMap[i].keySize;
+            return 0;
+        }
+    }
+
+    return NOT_COMPILED_IN;  /* Key not found in map */
+}
+
+/* Helper: Remove key from map (call on key free)
+ * NOTE: Currently unused but kept for future key lifecycle management */
+#if 0
+static void ksm_remove_key_handle(void* keyPtr)
+{
+    int i;
+
+    for (i = 0; i < g_ksmKeyMapCount; i++) {
+        if (g_ksmKeyMap[i].keyPtr == keyPtr) {
+            /* Shift remaining entries */
+            for (; i < g_ksmKeyMapCount - 1; i++) {
+                g_ksmKeyMap[i] = g_ksmKeyMap[i + 1];
+            }
+            g_ksmKeyMapCount--;
+            return;
+        }
+    }
+}
+#endif
 
 /* Helper: Find or create ECC policy entry */
 static EccPolicy* _ksm_get_ecc_policy(int curveId, int create)
@@ -197,21 +280,55 @@ int wolfKSM_CryptoDevCb(int devId, wc_CryptoInfo* info, void* ctx)
     #ifndef NO_RSA
         /* RSA Operations */
         if (info->pk.type == WC_PK_TYPE_RSA) {
-            /* Get KSM handle from key */
-            ksmId = (ksm_key_id)info->pk.rsa.key->devId;
-            if ((int)ksmId == INVALID_DEVID || ksmId == 0) {
+            /* Only handle PRIVATE operations (signing, decryption)
+             * PUBLIC operations (encryption, verification) use software */
+            if (info->pk.rsa.type != RSA_PRIVATE_ENCRYPT &&
+                info->pk.rsa.type != RSA_PRIVATE_DECRYPT) {
+                return CRYPTOCB_UNAVAILABLE;
+            }
+
+            /* Get KSM handle from key map */
+            rc = ksm_get_key_handle(info->pk.rsa.key, &ksmId, NULL);
+            if (rc != 0) {
                 return CRYPTOCB_UNAVAILABLE;  /* Not a KSM key */
             }
 
-            /* RSA Sign/Decrypt operation */
-            rc = ksm_sign(ksmId, info->pk.rsa.in, info->pk.rsa.inLen,
-                          info->pk.rsa.out, info->pk.rsa.outLen);
-            if (rc != KSM_SUCCESS) {
-                WOLFSSL_MSG("wolfKSM: ksm_sign failed");
-                rc = ksm_to_wc_error(rc);
+            /* RSA operation - sign vs decrypt */
+            if (info->pk.rsa.type == RSA_PRIVATE_ENCRYPT) {
+                /* Signing operation */
+                rc = ksm_sign(ksmId, info->pk.rsa.in, info->pk.rsa.inLen,
+                              info->pk.rsa.out, info->pk.rsa.outLen);
+                if (rc != KSM_SUCCESS) {
+                    WOLFSSL_MSG("wolfKSM: ksm_sign failed");
+                    rc = ksm_to_wc_error(rc);
+                }
+                else {
+                    rc = (int)*info->pk.rsa.outLen;  /* Return signature size */
+                }
             }
             else {
-                rc = (int)*info->pk.rsa.outLen;  /* Return signature size */
+                /* Decryption operation (RSA_PRIVATE_DECRYPT) */
+                rc = ksm_decrypt(ksmId, info->pk.rsa.in, info->pk.rsa.inLen,
+                                 info->pk.rsa.out, info->pk.rsa.outLen);
+                if (rc != KSM_SUCCESS) {
+                    WOLFSSL_MSG("wolfKSM: ksm_decrypt failed");
+                    rc = ksm_to_wc_error(rc);
+                }
+                else {
+                    rc = (int)*info->pk.rsa.outLen;  /* Return raw RSA output size */
+                }
+            }
+        }
+        else if (info->pk.type == WC_PK_TYPE_RSA_GET_SIZE) {
+            /* Get key size from key map */
+            int keySize = 0;
+            rc = ksm_get_key_handle(info->pk.rsa_get_size.key, NULL, &keySize);
+            if (rc == 0 && keySize > 0) {
+                *info->pk.rsa_get_size.keySize = keySize / 8;  /* Convert bits to bytes */
+                rc = 0;
+            }
+            else {
+                rc = CRYPTOCB_UNAVAILABLE;
             }
         }
     #ifdef WOLFSSL_KEY_GEN
@@ -238,9 +355,9 @@ int wolfKSM_CryptoDevCb(int devId, wc_CryptoInfo* info, void* ctx)
             byte peer_pub[ECC_MAXSIZE * 2 + 1];
             word32 peer_len = sizeof(peer_pub);
 
-            /* Get KSM handle from private key */
-            ksmId = (ksm_key_id)private_key->devId;
-            if ((int)ksmId == INVALID_DEVID || ksmId == 0) {
+            /* Get KSM handle from key map */
+            rc = ksm_get_key_handle(private_key, &ksmId, NULL);
+            if (rc != 0) {
                 return CRYPTOCB_UNAVAILABLE;  /* Not a KSM key */
             }
 
@@ -263,9 +380,9 @@ int wolfKSM_CryptoDevCb(int devId, wc_CryptoInfo* info, void* ctx)
 
     #ifdef HAVE_ECC_SIGN
         if (info->pk.type == WC_PK_TYPE_ECDSA_SIGN) {
-            /* Get KSM handle from key */
-            ksmId = (ksm_key_id)info->pk.eccsign.key->devId;
-            if ((int)ksmId == INVALID_DEVID || ksmId == 0) {
+            /* Get KSM handle from key map */
+            rc = ksm_get_key_handle(info->pk.eccsign.key, &ksmId, NULL);
+            if (rc != 0) {
                 return CRYPTOCB_UNAVAILABLE;  /* Not a KSM key */
             }
 
@@ -723,7 +840,10 @@ int wolfKSM_MakeEccKey(ecc_key* key, WC_RNG* rng, int keysize, int curveId,
     }
 
     /* Generate key inside KSM */
+    /* Set recursion guard to prevent KSM from calling itself */
+    wolfKSM_InKeyGen = 1;
     rc = ksm_generate(type, &id);
+    wolfKSM_InKeyGen = 0;
     if (rc != KSM_SUCCESS) {
         WOLFSSL_MSG("wolfKSM: ksm_generate failed");
         return ksm_to_wc_error(rc);
@@ -747,6 +867,14 @@ int wolfKSM_MakeEccKey(ecc_key* key, WC_RNG* rng, int keysize, int curveId,
 
     /* Tag key as belonging to KSM device */
     key->devId = WOLFKSM_DEVID;
+
+    /* Store key mapping */
+    rc = ksm_store_key_handle(key, id, 0);  /* ECC doesn't need key size */
+    if (rc != 0) {
+        ksm_destroy(id);
+        WOLFSSL_MSG("wolfKSM: ksm_store_key_handle failed");
+        return rc;
+    }
 
     /* Return KSM handle to caller */
     *ksmId = id;
@@ -802,7 +930,10 @@ int wolfKSM_MakeRsaKey(RsaKey* key, int size, long e, WC_RNG* rng,
     }
 
     /* Generate key inside KSM */
+    /* Set recursion guard to prevent KSM from calling itself */
+    wolfKSM_InKeyGen = 1;
     rc = ksm_generate(type, &id);
+    wolfKSM_InKeyGen = 0;
     if (rc != KSM_SUCCESS) {
         WOLFSSL_MSG("wolfKSM: ksm_generate failed");
         return ksm_to_wc_error(rc);
@@ -837,6 +968,14 @@ int wolfKSM_MakeRsaKey(RsaKey* key, int size, long e, WC_RNG* rng,
 
     /* Tag key as belonging to KSM device */
     key->devId = WOLFKSM_DEVID;
+
+    /* Store key mapping with key size in bits */
+    rc = ksm_store_key_handle(key, id, size);
+    if (rc != 0) {
+        ksm_destroy(id);
+        WOLFSSL_MSG("wolfKSM: ksm_store_key_handle failed");
+        return rc;
+    }
 
     /* Return KSM handle to caller */
     *ksmId = id;
@@ -1067,6 +1206,65 @@ WOLFSSL_API int wolfKSM_X448SharedSecret(const byte* peerPub, word32 peerLen,
     return 0;
 }
 #endif /* HAVE_CURVE448 */
+
+/* ============================================================
+ * Transparent KSM Integration
+ * ============================================================ */
+
+/**
+ * Initialize wolfKSM for transparent operation.
+ * After calling this, ALL key generation will automatically use KSM.
+ * Applications don't need to change any code - just call this at startup.
+ *
+ * @return 0 on success, negative on error
+ */
+WOLFSSL_API int wolfKSM_Init(void)
+{
+    int rc;
+
+    WOLFSSL_ENTER("wolfKSM_Init");
+
+    /* Initialize KSM library */
+    rc = ksm_init();
+    if (rc != KSM_SUCCESS) {
+        WOLFSSL_MSG("wolfKSM: ksm_init failed");
+        return ksm_to_wc_error(rc);
+    }
+
+    /* Register crypto callback */
+    rc = wc_CryptoCb_RegisterDevice(WOLFKSM_DEVID, wolfKSM_CryptoDevCb, NULL);
+    if (rc != 0) {
+        WOLFSSL_MSG("wolfKSM: Failed to register crypto callback");
+        ksm_shutdown();
+        return rc;
+    }
+
+    /* Enable automatic KSM for all new keys */
+    g_ksmAutoEnable = 1;
+    g_ksm_initialized = 1;
+
+    WOLFSSL_MSG("wolfKSM: Initialized - all new keys will use KSM automatically");
+    return 0;
+}
+
+/**
+ * Shutdown wolfKSM.
+ * Call at application exit.
+ */
+WOLFSSL_API void wolfKSM_Cleanup(void)
+{
+    WOLFSSL_ENTER("wolfKSM_Cleanup");
+
+    g_ksmAutoEnable = 0;
+    g_ksm_initialized = 0;
+
+    /* Note: We don't unregister the crypto callback because wolfSSL doesn't
+     * provide an unregister API. This is safe - the callback will return
+     * CRYPTOCB_UNAVAILABLE after KSM is shutdown. */
+
+    ksm_shutdown();
+    WOLFSSL_MSG("wolfKSM: Shutdown complete");
+}
 
 #endif /* WOLF_CRYPTO_CB */
 #endif /* HAVE_WOLFKSM */

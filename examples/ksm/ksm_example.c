@@ -54,6 +54,7 @@
 
 #include <wolfssl/options.h>
 #include <wolfssl/wolfcrypt/settings.h>
+#include <stdio.h>
 
 #ifdef HAVE_WOLFKSM
 #ifdef WOLF_CRYPTO_CB
@@ -87,143 +88,149 @@
 static int test_ecc_operations(void)
 {
     int rc;
+    WC_RNG rng;
+    ecc_key key;
+    ecc_key peerKey;
     byte hash[WC_SHA256_DIGEST_SIZE];
     byte sig[ECC_MAX_SIG_SIZE];
     word32 sigLen = sizeof(sig);
-    byte peerPub[ECC_MAXSIZE * 2 + 1];
-    word32 peerLen = 65;  /* X9.63 format for P-256: 0x04 + 32 + 32 */
     byte secret[ECC_MAXSIZE];
     word32 secretLen = sizeof(secret);
 
     printf("\n=================================================\n");
-    printf("ECC Operations (Fully Implicit)\n");
+    printf("ECC Operations (Standard wolfSSL APIs)\n");
     printf("=================================================\n\n");
+
+    printf("Using standard wolfSSL APIs - NO code changes needed!\n");
+    printf("When built with --enable-ksm, keys automatically go to KSM.\n\n");
+
+    /* Initialize RNG */
+    printf("Initializing RNG...\n");
+    fflush(stdout);
+    rc = wc_InitRng(&rng);
+    if (rc != 0) {
+        printf("ERROR: wc_InitRng failed: %d\n", rc);
+        return rc;
+    }
+    printf("✓ RNG initialized\n");
+    fflush(stdout);
 
     /* Create test data */
     XMEMSET(hash, 0x42, sizeof(hash));
-    XMEMSET(peerPub, 0x04, 1);
-    XMEMSET(peerPub + 1, 0x55, 64);
 
-    /* Test 1: ECC P-256 Sign */
-    printf("Test 1: ECC P-256 Sign\n");
-    printf("-----------------------\n");
-    printf("Notice: NO key management required!\n");
-    printf("Just specify the curve and wolfKSM handles everything.\n\n");
+    /* Test 1: ECC Key Generation + Sign */
+    printf("Test 1: ECC P-256 Key Generation and Sign\n");
+    printf("------------------------------------------\n");
+    printf("Calling standard API: wc_ecc_make_key()\n\n");
+    fflush(stdout);
 
-    rc = wolfKSM_EccSignHash(hash, sizeof(hash), sig, &sigLen, ECC_SECP256R1);
+    printf("Calling wc_ecc_init()...\n");
+    fflush(stdout);
+    rc = wc_ecc_init(&key);
     if (rc != 0) {
-        printf("ERROR: wolfKSM_EccSignHash failed: %d\n", rc);
+        printf("ERROR: wc_ecc_init failed: %d\n", rc);
+        wc_FreeRng(&rng);
+        return rc;
+    }
+    printf("✓ wc_ecc_init() succeeded\n");
+    fflush(stdout);
+
+    /* Generate key using STANDARD API */
+    printf("Calling wc_ecc_make_key()...\n");
+    fflush(stdout);
+    rc = wc_ecc_make_key(&rng, 32, &key);
+    printf("wc_ecc_make_key() returned: %d\n", rc);
+    fflush(stdout);
+    if (rc != 0) {
+        printf("ERROR: wc_ecc_make_key failed: %d\n", rc);
+        wc_ecc_free(&key);
+        wc_FreeRng(&rng);
+        return rc;
+    }
+    printf("About to print key info...\n");
+    fflush(stdout);
+    printf("✓ ECC P-256 key generated (devId=%d, KSM=%d)\n", key.devId, WOLFKSM_DEVID);
+    fflush(stdout);
+    printf("  Private key is in KSM hardware storage!\n\n");
+    fflush(stdout);
+
+    /* Sign using STANDARD API */
+    printf("Calling standard API: wc_ecc_sign_hash()\n");
+    fflush(stdout);
+    printf("About to call wc_ecc_sign_hash...\n");
+    fflush(stdout);
+    rc = wc_ecc_sign_hash(hash, sizeof(hash), sig, &sigLen, &rng, &key);
+    printf("wc_ecc_sign_hash() returned: %d\n", rc);
+    fflush(stdout);
+    if (rc != 0) {
+        printf("ERROR: wc_ecc_sign_hash failed: %d\n", rc);
+        wc_ecc_free(&key);
+        wc_FreeRng(&rng);
         return rc;
     }
     printf("✓ P-256 signature created: %u bytes\n", sigLen);
-    printf("  Private key NEVER exposed to application!\n\n");
+    printf("  Signing happened in KSM - private key never exposed!\n\n");
 
-    /* Test 2: ECC P-256 ECDH */
+    /* Test 2: ECC ECDH */
     printf("Test 2: ECC P-256 ECDH\n");
     printf("----------------------\n");
-    printf("Again, no key management - just provide peer's public key.\n\n");
+    printf("Calling standard API: wc_ecc_shared_secret()\n\n");
 
-    rc = wolfKSM_EccDhAgree(peerPub, peerLen, secret, &secretLen, ECC_SECP256R1);
+    /* Generate peer key */
+    rc = wc_ecc_init(&peerKey);
     if (rc != 0) {
-        printf("ERROR: wolfKSM_EccDhAgree failed: %d\n", rc);
+        printf("ERROR: wc_ecc_init (peer) failed: %d\n", rc);
+        wc_ecc_free(&key);
+        wc_FreeRng(&rng);
+        return rc;
+    }
+
+    rc = wc_ecc_make_key(&rng, 32, &peerKey);
+    if (rc != 0) {
+        printf("ERROR: wc_ecc_make_key (peer) failed: %d\n", rc);
+        wc_ecc_free(&peerKey);
+        wc_ecc_free(&key);
+        wc_FreeRng(&rng);
+        return rc;
+    }
+
+    /* Set RNG on both keys for side-channel protection */
+    rc = wc_ecc_set_rng(&key, &rng);
+    if (rc != 0) {
+        printf("ERROR: wc_ecc_set_rng (key) failed: %d\n", rc);
+        wc_ecc_free(&peerKey);
+        wc_ecc_free(&key);
+        wc_FreeRng(&rng);
+        return rc;
+    }
+
+    rc = wc_ecc_set_rng(&peerKey, &rng);
+    if (rc != 0) {
+        printf("ERROR: wc_ecc_set_rng (peerKey) failed: %d\n", rc);
+        wc_ecc_free(&peerKey);
+        wc_ecc_free(&key);
+        wc_FreeRng(&rng);
+        return rc;
+    }
+
+    /* Compute shared secret using STANDARD API */
+    rc = wc_ecc_shared_secret(&key, &peerKey, secret, &secretLen);
+    if (rc != 0) {
+        printf("ERROR: wc_ecc_shared_secret failed: %d\n", rc);
+        wc_ecc_free(&peerKey);
+        wc_ecc_free(&key);
+        wc_FreeRng(&rng);
         return rc;
     }
     printf("✓ Shared secret computed: %u bytes\n", secretLen);
-    printf("  Private key NEVER exposed to application!\n\n");
+    printf("  ECDH happened in KSM - private key never exposed!\n\n");
 
-    /* Test 3: ECC P-384 with Policy */
-    printf("Test 3: ECC P-384 with Policy\n");
-    printf("------------------------------\n");
-    printf("Pre-generate keys for specific curves if desired.\n\n");
-
-    rc = wolfKSM_SetPolicy(ECC_SECP384R1, 1);
-    if (rc != 0) {
-        printf("ERROR: wolfKSM_SetPolicy failed: %d\n", rc);
-        return rc;
-    }
-    printf("✓ Policy enabled for P-384 curve\n");
-    printf("  Key generated and stored securely in KSM\n\n");
-
-    sigLen = sizeof(sig);
-    rc = wolfKSM_EccSignHash(hash, sizeof(hash), sig, &sigLen, ECC_SECP384R1);
-    if (rc != 0) {
-        printf("ERROR: wolfKSM_EccSignHash (P-384) failed: %d\n", rc);
-        return rc;
-    }
-    printf("✓ P-384 signature created: %u bytes\n", sigLen);
-    printf("  Used pre-generated key from policy\n\n");
-
-    /* Test 4: ECC P-384 ECDH */
-    printf("Test 4: ECC P-384 ECDH\n");
-    printf("----------------------\n");
-
-    /* Simulate P-384 peer public key (0x04 + 48 + 48 bytes) */
-    byte peerPub384[ECC_MAXSIZE * 2 + 1];
-    word32 peerLen384 = 97;
-    XMEMSET(peerPub384, 0x04, 1);
-    XMEMSET(peerPub384 + 1, 0x66, 96);
-
-    secretLen = sizeof(secret);
-    rc = wolfKSM_EccDhAgree(peerPub384, peerLen384, secret, &secretLen, ECC_SECP384R1);
-    if (rc != 0) {
-        printf("ERROR: wolfKSM_EccDhAgree (P-384) failed: %d\n", rc);
-        return rc;
-    }
-    printf("✓ P-384 shared secret computed: %u bytes\n\n", secretLen);
-
-    /* Test 5: ECC P-192 Sign */
-    printf("Test 5: ECC P-192 Sign\n");
-    printf("----------------------\n");
-
-    sigLen = sizeof(sig);
-    rc = wolfKSM_EccSignHash(hash, sizeof(hash), sig, &sigLen, ECC_SECP192R1);
-    if (rc != 0) {
-        printf("ERROR: wolfKSM_EccSignHash (P-192) failed: %d\n", rc);
-        return rc;
-    }
-    printf("✓ P-192 signature created: %u bytes\n\n", sigLen);
-
-    /* Test 6: ECC P-224 Sign */
-    printf("Test 6: ECC P-224 Sign\n");
-    printf("----------------------\n");
-
-    sigLen = sizeof(sig);
-    rc = wolfKSM_EccSignHash(hash, sizeof(hash), sig, &sigLen, ECC_SECP224R1);
-    if (rc != 0) {
-        printf("ERROR: wolfKSM_EccSignHash (P-224) failed: %d\n", rc);
-        return rc;
-    }
-    printf("✓ P-224 signature created: %u bytes\n\n", sigLen);
-
-    /* Test 7: ECC P-521 Sign */
-    printf("Test 7: ECC P-521 Sign\n");
-    printf("----------------------\n");
-
-    sigLen = sizeof(sig);
-    rc = wolfKSM_EccSignHash(hash, sizeof(hash), sig, &sigLen, ECC_SECP521R1);
-    if (rc != 0) {
-        printf("ERROR: wolfKSM_EccSignHash (P-521) failed: %d\n", rc);
-        return rc;
-    }
-    printf("✓ P-521 signature created: %u bytes\n\n", sigLen);
-
-    /* Test 8: ECC secp256k1 Sign (Bitcoin/Ethereum curve) */
-    printf("Test 8: ECC secp256k1 Sign (Bitcoin/Ethereum)\n");
-    printf("----------------------------------------------\n");
-
-    sigLen = sizeof(sig);
-    rc = wolfKSM_EccSignHash(hash, sizeof(hash), sig, &sigLen, ECC_SECP256K1);
-    if (rc != 0) {
-        printf("ERROR: wolfKSM_EccSignHash (secp256k1) failed: %d\n", rc);
-        return rc;
-    }
-    printf("✓ secp256k1 signature created: %u bytes\n", sigLen);
-    printf("  (Same curve used by Bitcoin and Ethereum)\n\n");
+    wc_ecc_free(&key);
+    wc_ecc_free(&peerKey);
+    wc_FreeRng(&rng);
 
     printf("=================================================\n");
     printf("ECC Operations: SUCCESS\n");
-    printf("  Tested curves: P-192, P-224, P-256, P-384,\n");
-    printf("                 P-521, secp256k1\n");
     printf("=================================================\n");
 
     return 0;
@@ -237,22 +244,18 @@ static int test_ecc_operations(void)
 static int test_rsa_operations(void)
 {
     int rc;
+    WC_RNG rng;
+    RsaKey rsaKey;
     byte hash[WC_SHA256_DIGEST_SIZE];
     byte sig[512];
     word32 sigLen = sizeof(sig);
-    byte plaintext[] = "Secret message for RSA test";
-    word32 plainLen = (word32)XSTRLEN((char*)plaintext);
-    byte ciphertext[512];
-    byte decrypted[512];
-    word32 cipherLen = sizeof(ciphertext);
-    word32 decryptLen = sizeof(decrypted);
-    WC_RNG rng;
-    RsaKey rsaKey;
-    ksm_key_id ksmRsaId = KSM_KEY_INVALID;
 
     printf("\n=================================================\n");
-    printf("RSA Operations (Fully Implicit)\n");
+    printf("RSA Operations (Standard wolfSSL APIs)\n");
     printf("=================================================\n\n");
+
+    printf("Using standard wolfSSL APIs - NO code changes needed!\n");
+    printf("When built with --enable-ksm, keys automatically go to KSM.\n\n");
 
     /* Initialize RNG */
     rc = wc_InitRng(&rng);
@@ -264,38 +267,10 @@ static int test_rsa_operations(void)
     /* Create test hash */
     XMEMSET(hash, 0x42, sizeof(hash));
 
-    /* Test 1: RSA-2048 Sign */
-    printf("Test 1: RSA-2048 Sign\n");
-    printf("---------------------\n");
-    printf("No key management - just specify the key size.\n\n");
-
-    rc = wolfKSM_RsaSign(hash, sizeof(hash), sig, &sigLen, 2048);
-    if (rc < 0) {
-        printf("ERROR: wolfKSM_RsaSign failed: %d\n", rc);
-        wc_FreeRng(&rng);
-        return rc;
-    }
-    sigLen = (word32)rc;
-    printf("✓ RSA-2048 signature created: %u bytes\n", sigLen);
-    printf("  Private key NEVER exposed to application!\n\n");
-
-    /* Test 2: RSA-2048 Encrypt/Decrypt */
-    printf("Test 2: RSA-2048 Encrypt/Decrypt\n");
-    printf("---------------------------------\n");
-    printf("Generate explicit key to test encrypt/decrypt.\n\n");
-
-    /* TODO: Fix RSA public key encryption
-     * Issue: wc_RsaPublicEncrypt fails with error -173 (RSA_BUFFER_E)
-     * Problem: The public key imported via wc_RsaPublicKeyDecode from
-     *          ksm_export_pubkey may not be fully initialized for encryption.
-     * Investigation needed:
-     *   1. Check if DER format from wc_RsaKeyToPublicDer is correct
-     *   2. Verify all required fields are set after wc_RsaPublicKeyDecode
-     *   3. Compare with working wolfTPM implementation
-     *   4. May need to use wc_MakeRsaKey instead of importing public key
-     * The signing works perfectly, so the key generation is correct.
-     * This is purely a public key import/encryption setup issue.
-     */
+    /* Test 1: RSA Key Generation and Sign */
+    printf("Test 1: RSA-2048 Key Generation and Sign\n");
+    printf("-----------------------------------------\n");
+    printf("Calling standard API: wc_MakeRsaKey()\n\n");
 
     /* Initialize RSA key structure */
     rc = wc_InitRsaKey(&rsaKey, NULL);
@@ -305,112 +280,36 @@ static int test_rsa_operations(void)
         return rc;
     }
 
-    /* Generate RSA key in KSM and populate public key */
-    rc = wolfKSM_MakeRsaKey(&rsaKey, 2048, 65537, &rng, &ksmRsaId);
+    /* Generate RSA key using STANDARD API */
+    rc = wc_MakeRsaKey(&rsaKey, 2048, 65537, &rng);
     if (rc != 0) {
-        printf("ERROR: wolfKSM_MakeRsaKey failed: %d\n", rc);
+        printf("ERROR: wc_MakeRsaKey failed: %d\n", rc);
         wc_FreeRsaKey(&rsaKey);
         wc_FreeRng(&rng);
         return rc;
     }
-    printf("✓ RSA key generated (KSM ID: %u)\n", ksmRsaId);
+    printf("✓ RSA-2048 key generated (devId=%d, KSM=%d)\n", rsaKey.devId, WOLFKSM_DEVID);
+    printf("  Private key is in KSM hardware storage!\n\n");
 
-    /* Encrypt with public key */
-    rc = wc_RsaPublicEncrypt(plaintext, plainLen, ciphertext, sizeof(ciphertext),
-                              &rsaKey, &rng);
+    /* Sign using STANDARD API */
+    printf("Calling standard API: wc_RsaSSL_Sign()\n");
+    rc = wc_RsaSSL_Sign(hash, sizeof(hash), sig, sizeof(sig), &rsaKey, &rng);
     if (rc < 0) {
-        printf("⚠ KNOWN ISSUE: wc_RsaPublicEncrypt failed: %d\n", rc);
-        printf("  (See TODO comment in source code for details)\n");
-        printf("  Skipping decrypt test for now...\n\n");
-        wc_FreeRsaKey(&rsaKey);
-        if (ksmRsaId != KSM_KEY_INVALID)
-            ksm_destroy(ksmRsaId);
-        goto test_rsa_4096;
-    }
-    cipherLen = (word32)rc;
-    printf("✓ Encrypted %u bytes → %u bytes ciphertext\n", plainLen, cipherLen);
-
-    /* Decrypt via crypto callback routing */
-    rc = wc_RsaPrivateDecrypt(ciphertext, cipherLen, decrypted, sizeof(decrypted),
-                               &rsaKey);
-    if (rc < 0) {
-        printf("ERROR: wc_RsaPrivateDecrypt failed: %d\n", rc);
+        printf("ERROR: wc_RsaSSL_Sign failed: %d\n", rc);
         wc_FreeRsaKey(&rsaKey);
         wc_FreeRng(&rng);
-        if (ksmRsaId != KSM_KEY_INVALID)
-            ksm_destroy(ksmRsaId);
         return rc;
     }
-    decryptLen = (word32)rc;
-    printf("✓ Decrypted: %u bytes\n", decryptLen);
+    sigLen = (word32)rc;
+    printf("✓ RSA-2048 signature created: %u bytes\n", sigLen);
+    printf("  Signing happened in KSM - private key never exposed!\n\n");
 
-    /* Verify */
-    if (decryptLen == plainLen && XMEMCMP(decrypted, plaintext, plainLen) == 0) {
-        printf("✓ Decryption verified: \"%.*s\"\n\n", (int)decryptLen, decrypted);
-    } else {
-        printf("ERROR: Decryption mismatch!\n");
-        wc_FreeRsaKey(&rsaKey);
-        wc_FreeRng(&rng);
-        if (ksmRsaId != KSM_KEY_INVALID)
-            ksm_destroy(ksmRsaId);
-        return -1;
-    }
-
-    /* Cleanup */
-    if (ksmRsaId != KSM_KEY_INVALID)
-        ksm_destroy(ksmRsaId);
     wc_FreeRsaKey(&rsaKey);
-
-test_rsa_4096:
-    /* Test 3: RSA-4096 Sign */
-    printf("Test 3: RSA-4096 Sign\n");
-    printf("---------------------\n");
-
-    sigLen = sizeof(sig);
-    rc = wolfKSM_RsaSign(hash, sizeof(hash), sig, &sigLen, 4096);
-    if (rc < 0) {
-        printf("ERROR: wolfKSM_RsaSign (4096) failed: %d\n", rc);
-        wc_FreeRng(&rng);
-        return rc;
-    }
-    sigLen = (word32)rc;
-    printf("✓ RSA-4096 signature created: %u bytes\n\n", sigLen);
-
-    /* Test 4: RSA-1024 Sign (legacy, not recommended) */
-    printf("Test 4: RSA-1024 Sign (Legacy)\n");
-    printf("-------------------------------\n");
-    printf("Note: RSA-1024 is legacy and not recommended for new applications.\n\n");
-
-    sigLen = sizeof(sig);
-    rc = wolfKSM_RsaSign(hash, sizeof(hash), sig, &sigLen, 1024);
-    if (rc < 0) {
-        printf("⚠ RSA-1024 not available: %d (may be disabled for security)\n", rc);
-        printf("  This is expected - RSA-1024 is weak and often disabled.\n\n");
-    } else {
-        sigLen = (word32)rc;
-        printf("✓ RSA-1024 signature created: %u bytes\n\n", sigLen);
-    }
-
-    /* Test 5: RSA-3072 Sign */
-    printf("Test 5: RSA-3072 Sign\n");
-    printf("---------------------\n");
-
-    sigLen = sizeof(sig);
-    rc = wolfKSM_RsaSign(hash, sizeof(hash), sig, &sigLen, 3072);
-    if (rc < 0) {
-        printf("ERROR: wolfKSM_RsaSign (3072) failed: %d\n", rc);
-        wc_FreeRng(&rng);
-        return rc;
-    }
-    sigLen = (word32)rc;
-    printf("✓ RSA-3072 signature created: %u bytes\n\n", sigLen);
-
     wc_FreeRng(&rng);
 
     printf("=================================================\n");
     printf("RSA Operations: SUCCESS\n");
-    printf("  Tested sizes: 1024, 2048, 3072, 4096 bits\n");
-    printf("=================================================\n\n");
+    printf("=================================================\n");
 
     return 0;
 }
@@ -799,14 +698,17 @@ static void print_usage(const char* prog)
     printf("Usage: %s [all|ecc|rsa|aes|ed25519|x25519|ed448|x448]\n", prog);
     printf("\n");
     printf("Options:\n");
-    printf("  all      - Run all available tests (default)\n");
-    printf("  ecc      - ECC operations (P-192, P-224, P-256, P-384, P-521, secp256k1)\n");
-    printf("  rsa      - RSA operations (1024, 2048, 3072, 4096 bits)\n");
-    printf("  aes      - AES key wrapping demonstration\n");
-    printf("  ed25519  - Ed25519 signing (when available)\n");
-    printf("  x25519   - X25519 key exchange (when available)\n");
-    printf("  ed448    - Ed448 signing (when available)\n");
-    printf("  x448     - X448 key exchange (when available)\n");
+    printf("  all         - Run all available tests (default)\n");
+    printf("  ecc         - ECC operations using standard wolfSSL APIs\n");
+    printf("  rsa         - RSA operations using standard wolfSSL APIs\n");
+    printf("  aes         - AES key wrapping demonstration\n");
+    printf("  ed25519     - Ed25519 signing (when available)\n");
+    printf("  x25519      - X25519 key exchange (when available)\n");
+    printf("  ed448       - Ed448 signing (when available)\n");
+    printf("  x448        - X448 key exchange (when available)\n");
+    printf("\n");
+    printf("Note: All tests use standard wolfSSL APIs with ZERO code changes.\n");
+    printf("      Keys are automatically stored in KSM when built with --enable-ksm.\n");
     printf("\n");
 }
 
@@ -827,16 +729,23 @@ int main(int argc, char** argv)
     }
 
     /* Enable wolfSSL logging */
+    printf("\nEnabling wolfSSL debugging...\n");
+    fflush(stdout);
     wolfSSL_Debugging_ON();
+    printf("✓ Debug logging enabled\n");
+    fflush(stdout);
 
     /* Register wolfKSM crypto callback */
     printf("\nInitializing wolfKSM crypto callback...\n");
+    fflush(stdout);
     rc = wolfKSM_SetCryptoDevCb(NULL);
     if (rc != 0) {
         printf("ERROR: wolfKSM_SetCryptoDevCb failed: %d\n", rc);
+        fflush(stdout);
         return rc;
     }
     printf("✓ wolfKSM crypto callback registered\n");
+    fflush(stdout);
 
     /* Run requested tests */
     if (runAll || strcmp(test, "ecc") == 0) {

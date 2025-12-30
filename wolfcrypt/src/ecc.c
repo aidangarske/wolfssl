@@ -164,12 +164,20 @@ ECC Curve Sizes:
     #include <wolfssl/wolfcrypt/aes.h>
 #endif
 
+#ifdef HAVE_WOLFKSM
+    #include <wolfssl/wolfcrypt/ksm_cryptocb.h>
+#endif
+
 #ifdef HAVE_X963_KDF
     #include <wolfssl/wolfcrypt/hash.h>
 #endif
 
 #ifdef WOLF_CRYPTO_CB
     #include <wolfssl/wolfcrypt/cryptocb.h>
+#endif
+
+#ifdef HAVE_WOLFKSM
+    #include <wolfssl/wolfcrypt/ksm_cryptocb.h>
 #endif
 
 #ifdef NO_INLINE
@@ -5660,6 +5668,19 @@ static int _ecc_make_key_ex(WC_RNG* rng, int keysize, ecc_key* key,
     #endif
     key->flags = (byte)flags;
 
+#if defined(HAVE_WOLFKSM) && defined(WOLF_CRYPTO_CB)
+    /* wolfKSM: Transparent hardware key storage - no application code changes needed */
+    /* Check recursion guard AND devId to prevent KSM from calling itself */
+    /* Only route to KSM if devId is specifically set to WOLFKSM_DEVID */
+    if (!wolfKSM_InKeyGen && key->devId == WOLFKSM_DEVID) {
+        ksm_key_id ksmId = KSM_KEY_INVALID;
+        /* Use curve from key->dp if curve_id not specified */
+        int actualCurve = (curve_id == 0 && key->dp != NULL) ? key->dp->id : curve_id;
+        err = wolfKSM_MakeEccKey(key, rng, keysize, actualCurve, &ksmId);
+        return err;
+    }
+    /* If in recursion or not using KSM devId, fall through to software/other crypto callbacks */
+#endif
 #if defined(WOLF_CRYPTO_CB) && defined(HAVE_ECC_DHE)
     #ifndef WOLF_CRYPTO_CB_FIND
     if (key->devId != INVALID_DEVID)
@@ -6751,11 +6772,14 @@ int wc_ecc_sign_hash(const byte* in, word32 inlen, byte* out, word32 *outlen,
 #else
 
     NEW_MP_INT_SIZE(r, ECC_KEY_MAX_BITS_NONULLCHECK(key), key->heap, DYNAMIC_TYPE_ECC);
+
     #ifdef MP_INT_SIZE_CHECK_NULL
     if (r == NULL)
         return MEMORY_E;
     #endif
+
     NEW_MP_INT_SIZE(s, ECC_KEY_MAX_BITS_NONULLCHECK(key), key->heap, DYNAMIC_TYPE_ECC);
+
     #ifdef MP_INT_SIZE_CHECK_NULL
     if (s == NULL) {
         FREE_MP_INT_SIZE(r, key->heap, DYNAMIC_TYPE_ECC);
@@ -6764,12 +6788,15 @@ int wc_ecc_sign_hash(const byte* in, word32 inlen, byte* out, word32 *outlen,
     #endif
 
     err = INIT_MP_INT_SIZE(r, ECC_KEY_MAX_BITS_NONULLCHECK(key));
+
     if (err != 0) {
         FREE_MP_INT_SIZE(s, key->heap, DYNAMIC_TYPE_ECC);
         FREE_MP_INT_SIZE(r, key->heap, DYNAMIC_TYPE_ECC);
         return err;
     }
+
     err = INIT_MP_INT_SIZE(s, ECC_KEY_MAX_BITS_NONULLCHECK(key));
+
     if (err != 0) {
         FREE_MP_INT_SIZE(s, key->heap, DYNAMIC_TYPE_ECC);
         FREE_MP_INT_SIZE(r, key->heap, DYNAMIC_TYPE_ECC);
@@ -6909,15 +6936,18 @@ static int ecc_sign_hash_sw(ecc_key* key, ecc_key* pubkey, WC_RNG* rng,
     int loop_check = 0;
     DECL_MP_INT_SIZE_DYN(b, ECC_KEY_MAX_BITS_NONULLCHECK(key), MAX_ECC_BITS_USE);
 
+
     NEW_MP_INT_SIZE(b, ECC_KEY_MAX_BITS_NONULLCHECK(key), key->heap, DYNAMIC_TYPE_ECC);
 #ifdef MP_INT_SIZE_CHECK_NULL
     if (b == NULL)
         err = MEMORY_E;
 #endif
 
+
     if (err == MP_OKAY) {
         err = INIT_MP_INT_SIZE(b, ECC_KEY_MAX_BITS_NONULLCHECK(key));
     }
+
 
 #ifdef WOLFSSL_CUSTOM_CURVES
     /* if custom curve, apply params to pubkey */
@@ -6925,6 +6955,7 @@ static int ecc_sign_hash_sw(ecc_key* key, ecc_key* pubkey, WC_RNG* rng,
         err = wc_ecc_set_custom_curve(pubkey, key->dp);
     }
 #endif
+
 
     if (err == MP_OKAY) {
         /* Generate blinding value - non-zero value. */
@@ -6939,13 +6970,16 @@ static int ecc_sign_hash_sw(ecc_key* key, ecc_key* pubkey, WC_RNG* rng,
         while (err == WC_NO_ERR_TRACE(MP_ZERO_E));
         loop_check = 0;
     }
+
 #ifdef WOLFSSL_CHECK_MEM_ZERO
     if (err == MP_OKAY) {
         mp_memzero_add("ecc_sign_hash_sw b", b);
     }
 #endif
 
+
     for (; err == MP_OKAY;) {
+
         if (++loop_check > 64) {
              err = RNG_FAILURE_E;
              break;
@@ -7018,8 +7052,10 @@ static int ecc_sign_hash_sw(ecc_key* key, ecc_key* pubkey, WC_RNG* rng,
             mp_int* ep = kp;
             mp_int* x  = ecc_get_k(key);
 
+
             /* Blind after getting. */
             ecc_blind_k(key, b);
+
 
             /* find s = (e + xr)/k
                       = b.(e/k.b + x.r/k.b) */
@@ -7217,6 +7253,8 @@ int wc_ecc_sign_hash_ex(const byte* in, word32 inlen, WC_RNG* rng,
                      ecc_key* key, mp_int *r, mp_int *s)
 {
    int    err = 0;
+
+
 #if !defined(WOLFSSL_SP_MATH)
    mp_int* e;
 #if !defined(WOLFSSL_ASYNC_CRYPT) || !defined(HAVE_CAVIUM_V)
@@ -7234,19 +7272,24 @@ int wc_ecc_sign_hash_ex(const byte* in, word32 inlen, WC_RNG* rng,
 #endif
 #endif /* !WOLFSSL_SP_MATH */
 
+
    if (in == NULL || r == NULL || s == NULL || key == NULL || rng == NULL) {
        return ECC_BAD_ARG_E;
    }
+
 
    /* is this a private key? */
    if (key->type != ECC_PRIVATEKEY && key->type != ECC_PRIVATEKEY_ONLY) {
       return ECC_BAD_ARG_E;
    }
 
+
+
    /* is the IDX valid ?  */
    if (wc_ecc_is_valid_idx(key->idx) == 0 || key->dp == NULL) {
       return ECC_BAD_ARG_E;
    }
+
 
 #if defined(WOLFSSL_SP_MATH)
     if (key->idx == ECC_CUSTOM_IDX || (1
@@ -7266,6 +7309,7 @@ int wc_ecc_sign_hash_ex(const byte* in, word32 inlen, WC_RNG* rng,
         return WC_KEY_SIZE_E;
     }
 #endif
+
 
 #if defined(WOLFSSL_ECDSA_DETERMINISTIC_K) || \
     defined(WOLFSSL_ECDSA_DETERMINISTIC_K_VARIANT)
@@ -7295,6 +7339,7 @@ int wc_ecc_sign_hash_ex(const byte* in, word32 inlen, WC_RNG* rng,
     }
 #endif
 
+
 #if defined(WOLFSSL_HAVE_SP_ECC)
    err = ecc_sign_hash_sp(in, inlen, rng, key, r, s);
    if (err != WC_NO_ERR_TRACE(WC_KEY_SIZE_E)) {
@@ -7304,7 +7349,9 @@ int wc_ecc_sign_hash_ex(const byte* in, word32 inlen, WC_RNG* rng,
    (void)inlen;
 #endif
 
+
 #if !defined(WOLFSSL_SP_MATH)
+
 
 #if defined(WOLFSSL_ASYNC_CRYPT) && defined(HAVE_CAVIUM_V)
    err = wc_ecc_alloc_mpint(key, &key->e);
@@ -7322,12 +7369,15 @@ int wc_ecc_sign_hash_ex(const byte* in, word32 inlen, WC_RNG* rng,
    e = e_lcl;
 #endif
 
+
    /* get the hash and load it as a bignum into 'e' */
    /* init the bignums */
    if ((err = INIT_MP_INT_SIZE(e, ECC_KEY_MAX_BITS_NONULLCHECK(key))) != MP_OKAY) {
       FREE_MP_INT_SIZE(e_lcl, key->heap, DYNAMIC_TYPE_ECC);
       return err;
    }
+
+
 
    /* load curve info */
 #if defined(WOLFSSL_ECDSA_SET_K) || defined(WOLFSSL_ECDSA_SET_K_ONE_LOOP) || \
@@ -7352,6 +7402,7 @@ int wc_ecc_sign_hash_ex(const byte* in, word32 inlen, WC_RNG* rng,
             err = wc_ecc_curve_load(key->dp, &curve, ECC_CURVE_FIELD_ORDER);
     }
 #endif
+
 
    /* load digest into e */
    if (err == MP_OKAY) {
@@ -7445,11 +7496,15 @@ int wc_ecc_sign_hash_ex(const byte* in, word32 inlen, WC_RNG* rng,
    }
 #endif /* WOLFSSL_ASYNC_CRYPT && WC_ASYNC_ENABLE_ECC */
 
+
    if (err == MP_OKAY) {
        WC_DECLARE_VAR(pubkey, ecc_key, 1, 0);
 
+
        WC_ALLOC_VAR_EX(pubkey, ecc_key, 1, key->heap, DYNAMIC_TYPE_ECC,
            err=MEMORY_E);
+
+
        if (WC_VAR_OK(pubkey))
        {
        /* don't use async for key, since we don't support async return here */

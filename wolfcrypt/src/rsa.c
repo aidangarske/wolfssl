@@ -95,6 +95,9 @@ RSA Key Size Configuration:
 #ifdef WOLF_CRYPTO_CB
     #include <wolfssl/wolfcrypt/cryptocb.h>
 #endif
+#ifdef HAVE_WOLFKSM
+    #include <wolfssl/wolfcrypt/ksm_cryptocb.h>
+#endif
 #ifdef NO_INLINE
     #include <wolfssl/wolfcrypt/misc.h>
 #else
@@ -4874,6 +4877,17 @@ int wc_MakeRsaKey(RsaKey* key, int size, long e, WC_RNG* rng)
         goto out;
     }
 
+#if defined(HAVE_WOLFKSM) && defined(WOLF_CRYPTO_CB)
+    /* wolfKSM: Transparent hardware key storage - no application code changes needed */
+    /* Check recursion guard AND devId to prevent KSM from calling itself */
+    /* Only route to KSM if devId is specifically set to WOLFKSM_DEVID */
+    if (!wolfKSM_InKeyGen && key->devId == WOLFKSM_DEVID) {
+        ksm_key_id ksmId = KSM_KEY_INVALID;
+        err = wolfKSM_MakeRsaKey(key, size, e, rng, &ksmId);
+        goto out;
+    }
+    /* If in recursion or not using KSM devId, fall through to software/other crypto callbacks */
+#endif
 #if defined(WOLFSSL_CRYPTOCELL)
     err = cc310_RSA_GenerateKeyPair(key, size, e);
     goto out;
