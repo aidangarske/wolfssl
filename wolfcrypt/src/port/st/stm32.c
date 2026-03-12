@@ -492,6 +492,36 @@ int wc_Stm32_Hmac_GetAlgoInfo(int macType, word32* algo, word32* blockSize,
             if (digestSize) *digestSize = WC_SHA512_DIGEST_SIZE;
             break;
     #endif
+    #if defined(STM32_HASH_SHA3) && defined(WOLFSSL_SHA3)
+        #ifndef WOLFSSL_NOSHA3_224
+        case WC_SHA3_224:
+            if (algo)       *algo = HASH_ALGOSELECTION_SHA3_224;
+            if (blockSize)  *blockSize = WC_SHA3_224_BLOCK_SIZE;
+            if (digestSize) *digestSize = WC_SHA3_224_DIGEST_SIZE;
+            break;
+        #endif
+        #ifndef WOLFSSL_NOSHA3_256
+        case WC_SHA3_256:
+            if (algo)       *algo = HASH_ALGOSELECTION_SHA3_256;
+            if (blockSize)  *blockSize = WC_SHA3_256_BLOCK_SIZE;
+            if (digestSize) *digestSize = WC_SHA3_256_DIGEST_SIZE;
+            break;
+        #endif
+        #ifndef WOLFSSL_NOSHA3_384
+        case WC_SHA3_384:
+            if (algo)       *algo = HASH_ALGOSELECTION_SHA3_384;
+            if (blockSize)  *blockSize = WC_SHA3_384_BLOCK_SIZE;
+            if (digestSize) *digestSize = WC_SHA3_384_DIGEST_SIZE;
+            break;
+        #endif
+        #ifndef WOLFSSL_NOSHA3_512
+        case WC_SHA3_512:
+            if (algo)       *algo = HASH_ALGOSELECTION_SHA3_512;
+            if (blockSize)  *blockSize = WC_SHA3_512_BLOCK_SIZE;
+            if (digestSize) *digestSize = WC_SHA3_512_DIGEST_SIZE;
+            break;
+        #endif
+    #endif
         default:
             ret = BAD_FUNC_ARG;
             break;
