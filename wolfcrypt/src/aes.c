@@ -10085,6 +10085,33 @@ void GHASH(Gcm* gcm, const byte* a, word32 aSz, const byte* c,
 #endif /* end GCM_WORD32 */
 #endif
 
+#if defined(WOLFSSL_AESGCM_STREAM) && defined(WOLFSSL_ARMASM) && \
+    !defined(__aarch64__) && !defined(WOLFSSL_ARMASM_NO_HW_CRYPTO)
+/* 32-bit ARMASM has an assembly GMULT(X, H) but no C GHASH table, so the
+ * software streaming helpers below are built on top of that assembly GMULT. */
+static WC_INLINE void FlattenSzInBits(byte* buf, word32 sz)
+{
+    word32 szHi = (sz >> (8*sizeof(sz) - 3));
+    sz <<= 3;
+
+    buf[0] = (byte)(szHi >> 24);
+    buf[1] = (byte)(szHi >> 16);
+    buf[2] = (byte)(szHi >>  8);
+    buf[3] = (byte)szHi;
+    buf[4] = (byte)(sz >> 24);
+    buf[5] = (byte)(sz >> 16);
+    buf[6] = (byte)(sz >>  8);
+    buf[7] = (byte)sz;
+}
+#define GHASH_INIT_EXTRA(aes) WC_DO_NOTHING
+#define GHASH_ONE_BLOCK_SW(aes, block)                  \
+    do {                                                \
+        xorbuf(AES_TAG(aes), block, WC_AES_BLOCK_SIZE); \
+        GMULT(AES_TAG(aes), (aes)->gcm.H);              \
+    }                                                   \
+    while (0)
+#endif
+
 #if !defined(WOLFSSL_XILINX_CRYPT) && !defined(WOLFSSL_AFALG_XILINX_AES)
 #ifdef WOLFSSL_AESGCM_STREAM
 #ifndef GHASH_LEN_BLOCK
