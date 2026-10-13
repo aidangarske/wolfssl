@@ -5535,6 +5535,10 @@ blinding by defining WC_BLINDING_NO_RNG_ACKNOWLEDGE_WEAKNESS."
     #endif
 #endif
 
+#if defined(WOLFSSL_MLDSA_ALLOW_WEAK_PREHASH) && defined(HAVE_FIPS)
+    #error "WOLFSSL_MLDSA_ALLOW_WEAK_PREHASH is incompatible with FIPS builds"
+#endif
+
 #if defined(WOLFSSL_HAVE_MLKEM) && \
     defined(WOLFSSL_DTLS13) && !defined(WOLFSSL_DTLS_CH_FRAG)
 #define WOLFSSL_DTLS_CH_FRAG

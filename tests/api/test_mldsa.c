@@ -1387,6 +1387,10 @@ static int mldsa_prehash_strength_level(byte level, int lambda, WC_RNG* rng)
     int res = 0;
     int i;
 
+#ifdef WOLFSSL_MLDSA_ALLOW_WEAK_PREHASH
+    (void)lambda;
+#endif
+
     key = (wc_MlDsaKey*)XMALLOC(sizeof(*key), NULL, DYNAMIC_TYPE_TMP_BUFFER);
     sig = (byte*)XMALLOC(MLDSA_MAX_SIG_SIZE, NULL, DYNAMIC_TYPE_TMP_BUFFER);
     goodSig = (byte*)XMALLOC(MLDSA_MAX_SIG_SIZE, NULL, DYNAMIC_TYPE_TMP_BUFFER);
@@ -1415,7 +1419,11 @@ static int mldsa_prehash_strength_level(byte level, int lambda, WC_RNG* rng)
             continue; /* hash not compiled in */
         }
         sigLen = MLDSA_MAX_SIG_SIZE;
+#ifdef WOLFSSL_MLDSA_ALLOW_WEAK_PREHASH
+        if (mldsa_prehash_strengths[i].strength >= 128) {
+#else
         if (mldsa_prehash_strengths[i].strength >= lambda) {
+#endif
             ExpectIntEQ(wc_MlDsaKey_SignCtxHash(key, NULL, 0, sig, &sigLen,
                 digest, (word32)digestSz, hash, rng), 0);
             ExpectIntEQ(wc_MlDsaKey_VerifyCtxHash(key, sig, sigLen, NULL, 0,

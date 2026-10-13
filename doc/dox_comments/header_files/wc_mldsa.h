@@ -299,12 +299,16 @@ int wc_MlDsaKey_SignCtx(wc_MlDsaKey* key, const byte* ctx, byte ctxLen,
 
     \brief HashML-DSA signing variant: signs a pre-hashed message.
     The caller supplies the hash bytes and identifies the hash
-    algorithm. This is the "pre-hash" mode of FIPS 204.
+    algorithm. This is the "pre-hash" mode of FIPS 204. Defining
+    WOLFSSL_MLDSA_ALLOW_WEAK_PREHASH permits a pre-hash weaker than the
+    parameter set for legacy interoperability. Such builds are not FIPS 204
+    compliant.
 
     \return 0 on success.
     \return BAD_FUNC_ARG if any required pointer is NULL, ctxLen is
     invalid, hashAlg is not supported or is weaker than the parameter set
-    (FIPS 204 sec 5.4), or the key has no private key set.
+    (FIPS 204 sec 5.4) without WOLFSSL_MLDSA_ALLOW_WEAK_PREHASH, or the key
+    has no private key set.
     \return BUFFER_E if the sig buffer is too small.
 
     \param [in,out] key Pointer to a wc_MlDsaKey with the private key.
@@ -478,12 +482,14 @@ int wc_MlDsaKey_VerifyCtx(wc_MlDsaKey* key, const byte* sig, word32 sigLen,
 
     \brief Verifies a HashML-DSA signature where the message digest
     was supplied directly. See wc_MlDsaKey_VerifyCtx() for the
-    semantics of res.
+    semantics of res. Defining WOLFSSL_MLDSA_ALLOW_WEAK_PREHASH permits a
+    pre-hash weaker than the parameter set for legacy interoperability. Such
+    builds are not FIPS 204 compliant.
 
     \return 0 if verification completed (check res for the result).
     \return BAD_FUNC_ARG if any required pointer is NULL, ctxLen is
     invalid, or hashAlg is unsupported or weaker than the parameter set
-    (FIPS 204 sec 5.4).
+    (FIPS 204 sec 5.4) without WOLFSSL_MLDSA_ALLOW_WEAK_PREHASH.
 
     \param [in,out] key Pointer to a wc_MlDsaKey with the public key.
     \param [in] sig Signature bytes to verify.

@@ -92,6 +92,10 @@
  * WOLFSSL_MLDSA_MAKE_KEY_SMALL_MEM                       Default: OFF
  *   Compiles key generation implementation that uses smaller amounts of memory
  *   but is slower.
+ * WOLFSSL_MLDSA_ALLOW_WEAK_PREHASH                       Default: OFF
+ *   Allows HashML-DSA to use an approved pre-hash whose collision strength is
+ *   below the parameter set's lambda. For legacy interoperability only. This
+ *   option is incompatible with FIPS builds.
  * WOLFSSL_MLDSA_SMALL_MEM_POLY64                         Default: OFF
  *   Compiles the small memory implementations to use a 64-bit polynomial.
  *   Uses 2KB of memory but is slightly quicker (2.75-7%).
@@ -888,7 +892,12 @@ static int mldsa_check_hash_strength(int hashAlg, word16 lambda)
             return BAD_FUNC_ARG;
     }
 
+#ifdef WOLFSSL_MLDSA_ALLOW_WEAK_PREHASH
+    (void)lambda;
+    return (strength >= 128) ? 0 : BAD_FUNC_ARG;
+#else
     return (strength >= lambda) ? 0 : BAD_FUNC_ARG;
+#endif
 }
 
 /* Get the OID for the digest hash.
