@@ -202,10 +202,6 @@
     #define WC_MD5_DIGEST_SIZE 16
 #endif
 
-#ifdef WOLFSSL_IOTSAFE
-    #include <wolfssl/wolfcrypt/port/iotsafe/iotsafe.h>
-#endif
-
 #if defined(WOLFSSL_RENESAS_TSIP_TLS)
     #include <wolfssl/wolfcrypt/port/Renesas/renesas_tsip_internal.h>
 #endif
@@ -7389,9 +7385,6 @@ struct WOLFSSL {
     /* wolfSSL native CA DN list received from the peer. */
     CertificateAuthority* ws_peer_ca_names;
 #endif
-#if defined(WOLFSSL_IOTSAFE) && defined(HAVE_PK_CALLBACKS)
-    IOTSAFE iotsafe;
-#endif
 #ifdef WOLFSSL_LWIP_NATIVE
     WOLFSSL_LWIP_NATIVE_STATE      lwipCtx; /* LwIP native socket IO Context */
 #endif
@@ -7771,11 +7764,6 @@ WOLFSSL_TEST_VIS int wolfssl_local_GetRecordSize(WOLFSSL *ssl, int payloadSz,
 WOLFSSL_LOCAL int wolfssl_local_GetMaxPlaintextSize(WOLFSSL *ssl);
 WOLFSSL_LOCAL int wolfSSL_GetMaxFragSize(WOLFSSL* ssl);
 WOLFSSL_LOCAL int wolfssl_local_GetMaxSendFragSize(WOLFSSL* ssl);
-
-#if defined(WOLFSSL_IOTSAFE) && defined(HAVE_PK_CALLBACKS)
-WOLFSSL_LOCAL IOTSAFE *wolfSSL_get_iotsafe_ctx(WOLFSSL *ssl);
-WOLFSSL_LOCAL int wolfSSL_set_iotsafe_ctx(WOLFSSL *ssl, IOTSAFE *iotsafe);
-#endif
 
 #if (defined(OPENSSL_EXTRA) || defined(WOLFSSL_WPAS_SMALL)) && defined(HAVE_ECC)
 WOLFSSL_LOCAL int SetECKeyInternal(WOLFSSL_EC_KEY* eckey);

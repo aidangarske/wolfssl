@@ -367,7 +367,6 @@ INCL_TARGS := 	wolfssl/callbacks.h \
 	wolfssl/wolfcrypt/port/intel/quickassist.h \
 	wolfssl/wolfcrypt/port/intel/quickassist_mem.h \
 	wolfssl/wolfcrypt/port/intel/quickassist_sync.h \
-	wolfssl/wolfcrypt/port/iotsafe/iotsafe.h \
 	wolfssl/wolfcrypt/port/kcapi/kcapi_dh.h \
 	wolfssl/wolfcrypt/port/kcapi/kcapi_ecc.h \
 	wolfssl/wolfcrypt/port/kcapi/kcapi_hash.h \
@@ -431,7 +430,7 @@ prodeng: "$(PROD_ENG)/rt/include/wolfssl572/wolfssl" "$(PROD_ENG)/rt/include/wol
 	"$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/autosar" "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/caam" \
 	"$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/cavium" "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/cypress" \
 	"$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/devcrypto" "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/espressif" \
-	"$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/intel" "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/iotsafe" \
+	"$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/intel" \
 	"$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/maxim" "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/nxp" \
 	"$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/pic32" "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/psa" \
 	"$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/Renesas" "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/riscv" \
@@ -470,7 +469,6 @@ done
 "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/devcrypto" \
 "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/espressif" \
 "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/intel" \
-"$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/iotsafe" \
 "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/kcapi" \
 "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/maxim" \
 "$(PROD_ENG)/rt/include/wolfssl572/wolfssl/wolfcrypt/port/nxp" \

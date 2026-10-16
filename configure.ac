@@ -12853,19 +12853,6 @@ then
     AM_CFLAGS="$AM_CFLAGS -DMAX_EX_DATA=10"
 fi
 
-# IoT-Safe support
-AC_ARG_ENABLE([iotsafe],
-    [AS_HELP_STRING([--enable-iotsafe],[Enables support for IoT-Safe secure applet (default: disabled)])],
-    [ ENABLED_IOTSAFE=$enableval ],
-    [ ENABLED_IOTSAFE=no ]
-    )
-
-AC_ARG_ENABLE([iotsafe-hwrng],
-    [AS_HELP_STRING([--enable-iotsafe-hwrng],[Enables support for IoT-Safe RNG (default: disabled)])],
-    [ ENABLED_IOTSAFE_HWRNG=$enableval ],
-    [ ENABLED_IOTSAFE_HWRNG=no ]
-    )
-
 # Make clean
 AC_ARG_ENABLE([makeclean],
     [AS_HELP_STRING([--enable-makeclean], [Enables forced "make clean" at the
@@ -13703,18 +13690,6 @@ then
     fi
 fi
 
-if test "$ENABLED_IOTSAFE" != "no"
-then
-    AM_CFLAGS="$AM_CFLAGS -DWOLFSSL_IOTSAFE"
-    ENABLED_IOTSAFE=yes
-fi
-
-if test "$ENABLED_IOTSAFE_HWRNG" != "no"
-then
-    AM_CFLAGS="$AM_CFLAGS -DHAVE_IOTSAFE_HWRNG"
-    ENABLED_IOTSAFE_HWRNG=yes
-fi
-
 if test "x$ENABLED_WOLFENGINE" = "xyes"
 then
     AM_CFLAGS="$AM_CFLAGS -DHAVE_AES_ECB"
@@ -14514,8 +14489,6 @@ AM_CONDITIONAL([BUILD_CAAM],[test "x$ENABLED_CAAM" != "xno"])
 AM_CONDITIONAL([BUILD_SEC_QORIQ],[test "x$ENABLED_SEC_QORIQ" != "xno"])
 AM_CONDITIONAL([BUILD_QNXCAAM],[test "x$ENABLED_CAAM_QNX" = "xyes"])
 AM_CONDITIONAL([BUILD_CAAM_LINUX],[test "x$ENABLED_CAAM_LINUX" = "xyes"])
-AM_CONDITIONAL([BUILD_IOTSAFE],[test "x$ENABLED_IOTSAFE" = "xyes"])
-AM_CONDITIONAL([BUILD_IOTSAFE_HWRNG],[test "x$ENABLED_IOTSAFE_HWRNG" = "xyes"])
 AM_CONDITIONAL([BUILD_VAULTIC],[test "x$ENABLED_VAULTIC" = "xyes"])
 AM_CONDITIONAL([BUILD_ELE],[test "x$ENABLED_ELE" != "xno"])
 AM_CONDITIONAL([BUILD_SE050],[test "x$ENABLED_SE050" = "xyes"])
@@ -15148,9 +15121,7 @@ echo "   * Crypto callbacks:           $ENABLED_CRYPTOCB"
 echo "   * Crypto callbacks only:      $ENABLED_CRYPTOCB_ONLY"
 echo "   * i.MX CAAM:                  $ENABLED_CAAM"
 echo "   * NXP EdgeLock Enclave:       $ENABLED_ELE"
-echo "   * IoT-Safe:                   $ENABLED_IOTSAFE"
 echo "   * WISeKey/SealSQ VaultIC:     $ENABLED_VAULTIC"
-echo "   * IoT-Safe HWRNG:             $ENABLED_IOTSAFE_HWRNG"
 echo "   * NXP SE050:                  $ENABLED_SE050"
 echo "   * STMicro STSAFE:             $ENABLED_STSAFE"
 echo "   * RealTek RTL8735B HUK:       $ENABLED_RTL8735B"

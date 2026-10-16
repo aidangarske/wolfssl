@@ -26,7 +26,6 @@ EXTRA_DIST+= IDE/IAR-EWARM
 EXTRA_DIST+= IDE/IAR-MSP430
 EXTRA_DIST+= IDE/Infineon
 EXTRA_DIST+= IDE/INTIME-RTOS
-EXTRA_DIST+= IDE/iotsafe
 EXTRA_DIST+= IDE/KDS
 EXTRA_DIST+= IDE/LINUX-SGX
 EXTRA_DIST+= IDE/LPCXPRESSO
@@ -85,7 +84,3 @@ include IDE/Renesas/e2studio/SK-S7G2/include.am
 
 # Single-file IDE entry (only the README is distributed).
 EXTRA_DIST+= IDE/OPENSTM32/README.md
-
-# Build-output directory produced by the iotsafe project, cleaned by
-# distclean (was declared in the removed IDE/iotsafe/include.am).
-DISTCLEANFILES+= IDE/iotsafe/build

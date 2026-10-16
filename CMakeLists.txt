@@ -720,11 +720,6 @@ if(WOLFSSL_SIGNAL)
     list(APPEND WOLFSSL_DEFINITIONS "-DHAVE_ALPN" "-DHAVE_MAX_FRAGMENT" "-DHAVE_TRUNCATED_HMAC" "-DHAVE_TRUSTED_CA" "-DOPENSSL_EXTRA" "-DWOLFSSL_AES_COUNTER" "-DWOLFSSL_AES_DIRECT" "-DWOLFSSL_ENCRYPTED_KEYS" "-DWOLFSSL_SIGNAL")
 endif()
 
-add_option("WOLFSSL_IOTSAFE" "Enable IoT-Safe support (default: disabled)" "no" "yes;no")
-if(WOLFSSL_IOTSAFE)
-    list(APPEND WOLFSSL_DEFINITIONS "-DWOLFSSL_IOTSAFE")
-endif()
-
 add_option("WOLFSSL_VAULTIC" "Enable WISeKey/SealSQ VaultIC support (default: disabled)" "no" "yes;no")
 if(WOLFSSL_VAULTIC)
     list(APPEND WOLFSSL_DEFINITIONS "-DWOLFSSL_VAULTIC")
@@ -5377,7 +5372,6 @@ set(HEADER_EXCLUDE
   "wolfssl/wolfcrypt/port/arm"
   "wolfssl/wolfcrypt/port/cypress"
   "wolfssl/wolfcrypt/port/Espressif"
-  "wolfssl/wolfcrypt/port/iotsafe"
   "wolfssl/wolfcrypt/port/nxp"
   "wolfssl/wolfcrypt/port/pic"
   "wolfssl/wolfcrypt/port/Renesas"

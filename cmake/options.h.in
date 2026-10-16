@@ -915,8 +915,6 @@ extern "C" {
 #cmakedefine OPENSSL_NO_EC
 #undef WOLFSSL_HAVE_WOLFSCEP
 #cmakedefine WOLFSSL_HAVE_WOLFSCEP
-#undef WOLFSSL_IOTSAFE
-#cmakedefine WOLFSSL_IOTSAFE
 #undef WOLFSSL_KRB
 #cmakedefine WOLFSSL_KRB
 #undef WOLFSSL_LIBWEBSOCKETS

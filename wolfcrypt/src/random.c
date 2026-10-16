@@ -107,7 +107,6 @@ This library contains implementation for the random number generator.
  * WOLFSSL_SCE_TRNG_HANDLE:  Renesas SCE TRNG handle              default: off
  * WOLFSSL_SE050_NO_TRNG:    Disable SE050 TRNG                   default: off
  * WOLFSSL_PSA_NO_RNG:       Disable PSA RNG                      default: off
- * HAVE_IOTSAFE_HWRNG:       IoT-Safe hardware RNG                default: off
  * WOLFSSL_XILINX_CRYPT_VERSAL: Xilinx Versal crypto RNG          default: off
  * WOLFSSL_VA416X0_TRNG:     Vorago VA416x0 hardware TRNG         default: off
  *                           (seeds Hash-DRBG; needs the VA416xx
@@ -247,10 +246,6 @@ This library contains implementation for the random number generator.
 
 #if defined(WOLFSSL_SILABS_SE_TYPES)
 #include <wolfssl/wolfcrypt/port/silabs/silabs_random.h>
-#endif
-
-#if defined(WOLFSSL_IOTSAFE) && defined(HAVE_IOTSAFE_HWRNG)
-#include <wolfssl/wolfcrypt/port/iotsafe/iotsafe.h>
 #endif
 
 #if defined(WOLFSSL_HAVE_PSA) && !defined(WOLFSSL_PSA_NO_RNG)

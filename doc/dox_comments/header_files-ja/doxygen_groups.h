@@ -289,19 +289,6 @@
     \defgroup CertManager 証明書マネージャーAPI
     \defgroup Compression 圧縮
     \defgroup Error エラー報告
-    \defgroup IoTSafe IoT-Safeモジュール
-    IoT-Safe(IoT-SIM Applet For Secure End-2-End Communication)は、SIMを堅牢で
-    スケーラブルかつ標準化されたハードウェアRoot of Trustとして活用し、データ通信を保護する技術です。
-
-    IoT-Safe SSLセッションは、SIMをハードウェアセキュリティモジュールとして使用し、すべての暗号公開
-    鍵操作をオフロードし、証明書と鍵へのアクセスをSIMに制限することで攻撃対象領域を削減します。
-
-    IoT-Safeサポートは、wolfSSL_CTX_iotsafe_enable()を使用して既存のWOLFSSL_CTXコンテキストで有効にできます。\n
-    コンテキスト内で作成されたセッションは、IoT-Safe鍵とファイル使用のパラメータを設定し、
-    wolfSSL_iotsafe_on()で公開鍵コールバックを有効にできます。
-
-    コンパイルされている場合、モジュールはwolfCryptのエントロピーソースとしてIoT-Safe乱数生成器をサポートします。
-
     \defgroup PSA プラットフォームセキュリティアーキテクチャ(PSA)API
     \defgroup Keys 鍵と証明書の変換
     \defgroup Logging ロギング

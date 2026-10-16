@@ -256,10 +256,6 @@ nobase_include_HEADERS+= wolfssl/wolfcrypt/port/caam/wolfcaam.h \
                          wolfssl/wolfcrypt/port/caam/wolfcaam_fsl_nxp.h
 endif
 
-if BUILD_IOTSAFE
-nobase_include_HEADERS+= wolfssl/wolfcrypt/port/iotsafe/iotsafe.h
-endif
-
 if BUILD_VAULTIC
 nobase_include_HEADERS+= wolfssl/wolfcrypt/port/sealsq/vaultic.h
 endif

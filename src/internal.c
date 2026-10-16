@@ -141,7 +141,6 @@
  *
  * Hardware/Platform TLS:
  * WOLFSSL_MAXQ10XX_TLS:       Maxim MAXQ10xx secure element           default: off
- * WOLFSSL_IOTSAFE:            IoTSAFE (GSMA) applet support           default: off
  * WOLFSSL_QNX_CAAM:           QNX CAAM crypto module support          default: off
  * HAVE_DH_DEFAULT_PARAMS:     No effect; kept for build compatibility
  * HAVE_EXT_CACHE:             External session cache callbacks        default: off
@@ -47632,26 +47631,6 @@ int wolfssl_local_GetMaxSendFragSize(WOLFSSL* ssl)
 
     return maxFragment;
 }
-
-#if defined(WOLFSSL_IOTSAFE) && defined(HAVE_PK_CALLBACKS)
-
-IOTSAFE *wolfSSL_get_iotsafe_ctx(WOLFSSL *ssl)
-{
-    if (ssl == NULL)
-        return NULL;
-    return &ssl->iotsafe;
-
-}
-
-int wolfSSL_set_iotsafe_ctx(WOLFSSL *ssl, IOTSAFE *iotsafe)
-{
-    if ((ssl == NULL) || (iotsafe == NULL))
-        return BAD_FUNC_ARG;
-    XMEMCPY(&ssl->iotsafe, iotsafe, sizeof(IOTSAFE));
-    return 0;
-}
-
-#endif /* WOLFSSL_IOTSAFE && HAVE_PK_CALLBACKS */
 
 #if defined(OPENSSL_ALL) && !defined(NO_FILESYSTEM) && !defined(NO_WOLFSSL_DIR)
 /* create an instance of WOLFSSL_BY_DIR_HASH structure */

@@ -309,10 +309,6 @@ if BUILD_CRYPTOAUTHLIB
 src_libwolfssl@LIBSUFFIX@_la_SOURCES += wolfcrypt/src/port/atmel/atmel.c
 endif
 
-if BUILD_IOTSAFE
-src_libwolfssl@LIBSUFFIX@_la_SOURCES += wolfcrypt/src/port/iotsafe/iotsafe.c
-endif
-
 if BUILD_VAULTIC
 src_libwolfssl@LIBSUFFIX@_la_SOURCES += wolfcrypt/src/port/sealsq/vaultic.c
 endif

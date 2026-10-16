@@ -402,6 +402,10 @@
     #endif
 #endif
 
+#if defined(WOLFSSL_IOTSAFE) || defined(HAVE_IOTSAFE_HWRNG)
+    #error "IoT-SAFE support has been removed"
+#endif
+
 #if defined(HAVE_FIPS) && \
     (defined(WC_FIPS_LL_CRYPTO) || defined(WOLFSSL_FIPS_DEV_NO_POST)) && \
     !defined(FIPS_NO_WRAPPERS)
