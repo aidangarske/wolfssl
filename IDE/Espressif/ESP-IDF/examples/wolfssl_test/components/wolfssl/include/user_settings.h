@@ -621,54 +621,6 @@
 --enable-asn-template
 */
 
-/* optional SM4 Ciphers. See https://github.com/wolfSSL/wolfsm */
-/*
-#define WOLFSSL_SM2
-#define WOLFSSL_SM3
-#define WOLFSSL_SM4
-*/
-
-#if defined(WOLFSSL_SM2) || defined(WOLFSSL_SM3) || defined(WOLFSSL_SM4)
-    /* SM settings, possible cipher suites:
-
-        TLS13-AES128-GCM-SHA256
-        TLS13-CHACHA20-POLY1305-SHA256
-        TLS13-SM4-GCM-SM3
-        TLS13-SM4-CCM-SM3
-
-    #define WOLFSSL_ESP32_CIPHER_SUITE "TLS13-SM4-GCM-SM3"
-    #define WOLFSSL_ESP32_CIPHER_SUITE "TLS13-SM4-CCM-SM3"
-    #define WOLFSSL_ESP32_CIPHER_SUITE "ECDHE-ECDSA-SM4-CBC-SM3"
-    #define WOLFSSL_ESP32_CIPHER_SUITE "ECDHE-ECDSA-SM4-GCM-SM3"
-    #define WOLFSSL_ESP32_CIPHER_SUITE "ECDHE-ECDSA-SM4-CCM-SM3"
-    #define WOLFSSL_ESP32_CIPHER_SUITE "TLS13-SM4-GCM-SM3:" \
-                                       "TLS13-SM4-CCM-SM3:"
-    */
-
-    #undef  WOLFSSL_BASE16
-    #define WOLFSSL_BASE16 /* required for WOLFSSL_SM2 */
-
-    #undef  WOLFSSL_SM4_ECB
-    #define WOLFSSL_SM4_ECB
-
-    #undef  WOLFSSL_SM4_CBC
-    #define WOLFSSL_SM4_CBC
-
-    #undef  WOLFSSL_SM4_CTR
-    #define WOLFSSL_SM4_CTR
-
-    #undef  WOLFSSL_SM4_GCM
-    #define WOLFSSL_SM4_GCM
-
-    #undef  WOLFSSL_SM4_CCM
-    #define WOLFSSL_SM4_CCM
-
-    #define HAVE_POLY1305
-    #define HAVE_CHACHA
-
-    #undef  HAVE_AESGCM
-    #define HAVE_AESGCM
-#endif
 
 /* Chipset detection from sdkconfig.h
  * Default is HW enabled unless turned off.
@@ -1007,40 +959,10 @@ Turn on timer debugging (used when CPU cycles not available)
  *
  * See Abstract Syntax Notation One (ASN.1) in:
  *   https://github.com/wolfSSL/wolfssl/blob/master/wolfssl/wolfcrypt/asn.h
- *
- * Optional SM4 Ciphers:
- *
- * Although the SM ciphers are shown here, the `certs_test_sm.h` may not yet
- * be available. See:
- *   https://github.com/wolfSSL/wolfssl/pull/6825
- *   https://github.com/wolfSSL/wolfsm
- *
- * Uncomment these 3 macros to enable the SM Ciphers and use the macros below.
  */
 
-/*
-#define WOLFSSL_SM2
-#define WOLFSSL_SM3
-#define WOLFSSL_SM4
-*/
-
 /* Conditional macros used in wolfSSL TLS client and server examples */
-#if defined(WOLFSSL_SM2) || defined(WOLFSSL_SM3) || defined(WOLFSSL_SM4)
-    #include <wolfssl/certs_test_sm.h>
-    #define CTX_CA_CERT          root_sm2
-    #define CTX_CA_CERT_SIZE     sizeof_root_sm2
-    #define CTX_CA_CERT_TYPE     WOLFSSL_FILETYPE_PEM
-    #define CTX_SERVER_CERT      server_sm2
-    #define CTX_SERVER_CERT_SIZE sizeof_server_sm2
-    #define CTX_SERVER_CERT_TYPE WOLFSSL_FILETYPE_PEM
-    #define CTX_SERVER_KEY       server_sm2_priv
-    #define CTX_SERVER_KEY_SIZE  sizeof_server_sm2_priv
-    #define CTX_SERVER_KEY_TYPE  WOLFSSL_FILETYPE_PEM
-
-    #undef  WOLFSSL_BASE16
-    #define WOLFSSL_BASE16
-#else
-    #if defined(USE_CERT_BUFFERS_2048)
+#if defined(USE_CERT_BUFFERS_2048)
         #ifdef USE_CERT_BUFFERS_1024
             #error "USE_CERT_BUFFERS_1024 is already defined. Pick one."
         #endif
@@ -1093,7 +1015,6 @@ Turn on timer debugging (used when CPU cycles not available)
         #define CTX_SERVER_KEY_TYPE  WOLFSSL_FILETYPE_ASN1
     #else
         /* Optionally define custom cert arrays, sizes, and types here */
-    #endif
 #endif /* Conditional key and cert constant names */
 
 /******************************************************************************

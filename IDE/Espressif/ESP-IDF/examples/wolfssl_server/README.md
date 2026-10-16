@@ -50,24 +50,6 @@ idf.py flash -p /dev/ttyS19 -b 115200 monitor
 ```
 
 
-Linux Client to x108 SM server
-
-```
-cd /mnt/c/workspace/wolfssl-$USER
-
-# show the ciphers
-./examples/client/client -e
-
-./examples/client/client  -h 192.168.1.108 -v 4 -l TLS_SM4_GCM_SM3 -c ./certs/sm2/client-sm2.pem -k ./certs/sm2/client-sm2-priv.pem   -A ./certs/sm2/root-sm2.pem -C
-```
-
-
-Linux Server
-
-```
-./examples/server/server                   -v 4 -l TLS13-SM4-CCM-SM3 -c ./certs/sm2/server-sm2.pem -k ./certs/sm2/server-sm2-priv.pem -A ./certs/sm2/client-sm2.pem -V
-```
-
 #### ESP32 Client to WSL Linux Server
 
 In Windows Powershell, (elevated permissions) forward the port _after_ starting the listening server:
@@ -88,12 +70,6 @@ Ciphers to consider
 TLS13-AES128-GCM-SHA256:
 TLS13-AES256-GCM-SHA384:
 TLS13-CHACHA20-POLY1305-SHA256:
-
-TLS13-SM4-GCM-SM3:
-TLS13-SM4-CCM-SM3:
-ECDHE-ECDSA-SM4-CBC-SM3:
-ECDHE-ECDSA-SM4-GCM-SM3:
-ECDHE-ECDSA-SM4-CCM-SM3
 
 DHE-RSA-AES128-SHA:
 DHE-RSA-AES256-SHA:

@@ -315,9 +315,6 @@ INCL_TARGS := 	wolfssl/callbacks.h \
 	wolfssl/wolfcrypt/sha512.h \
 	wolfssl/wolfcrypt/signature.h \
 	wolfssl/wolfcrypt/siphash.h \
-	wolfssl/wolfcrypt/sm2.h \
-	wolfssl/wolfcrypt/sm3.h \
-	wolfssl/wolfcrypt/sm4.h \
 	wolfssl/wolfcrypt/sp.h \
 	wolfssl/wolfcrypt/sp_int.h \
 	wolfssl/wolfcrypt/srp.h \

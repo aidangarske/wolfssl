@@ -224,30 +224,6 @@ cd /mnt/c/workspace/wolfssl-$USER/IDE/Espressif/ESP-IDF/examples/wolfssl_server
 idf.py flash -p /dev/ttyS19 -b 115200 monitor
 ```
 
-```
-cd /mnt/c/workspace/wolfssl-$USER
-
-./examples/client/client  -h 192.168.1.108 -v 4 -l TLS_SM4_GCM_SM3 -c ./certs/sm2/client-sm2.pem -k ./certs/sm2/client-sm2-priv.pem     -A ./certs/sm2/root-sm2.pem -C
-```
-
-Output:
-
-```text
-SSL version is TLSv1.3
-SSL cipher suite is TLS_SM4_GCM_SM3
-SSL curve name is SM2P256V1
-I hear you fa shizzle!
-```
-
-#### Linux client to Linux server:
-
-```
-./examples/client/client  -h 127.0.0.1 -v 4 -l ECDHE-ECDSA-SM4-CBC-SM3     -c ./certs/sm2/client-sm2.pem -k ./certs/sm2/client-sm2-priv.pem     -A ./certs/sm2/root-sm2.pem -C
-
-./examples/server/server                   -v 3 -l ECDHE-ECDSA-SM4-CBC-SM3     -c ./certs/sm2/server-sm2.pem -k ./certs/sm2/server-sm2-priv.pem     -A ./certs/sm2/client-sm2.pem -V
-```
-
-
 #### Linux Client using Kyber to ESP32 Server
 
 ```

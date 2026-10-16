@@ -64,15 +64,6 @@
 #include "wifi_connect.h"
 #include "time_helper.h"
 
-/* working TLS 1.2 VS client app commandline param:
- *
- *  -h 192.168.1.128 -v 3 -l ECDHE-ECDSA-SM4-CBC-SM3  -c ./certs/sm2/client-sm2.pem -k ./certs/sm2/client-sm2-priv.pem -A ./certs/sm2/root-sm2.pem -C
- *
- * working Linux, non-working VS c app
- *
- *  -h 192.168.1.128 -v 4 -l TLS13-SM4-CCM-SM3        -c ./certs/sm2/client-sm2.pem -k ./certs/sm2/client-sm2-priv.pem -A ./certs/sm2/root-sm2.pem -C
- *
- **/
 #define TAG "client-tls"
 
 #if defined(DEBUG_WOLFSSL)
@@ -452,16 +443,6 @@ WOLFSSL_ESP_TASK tls_smp_client_task(void* args)
 #endif
     }
 
-#if defined(WOLFSSL_SM2)
-    /* SM TLS1.3 Cipher needs to have key share explicitly set. */
-    ret = wolfSSL_UseKeyShare(ssl, WOLFSSL_ECC_SM2P256V1);
-    if (ret == WOLFSSL_SUCCESS) {
-        ESP_LOGI(TAG, "Successfully set WOLFSSL_ECC_SM2P256V1");
-    }
-    else {
-        ESP_LOGE(TAG, "FAILED to set WOLFSSL_ECC_SM2P256V1");
-    }
-#endif
         /* when using atecc608a on esp32-wroom-32se */
 
 #if defined(WOLFSSL_ESPWROOM32SE) && defined(HAVE_PK_CALLBACKS) \

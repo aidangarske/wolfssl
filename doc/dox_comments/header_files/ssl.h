@@ -4134,8 +4134,6 @@ int  wolfSSL_CTX_get_cert_cache_memsize(WOLFSSL_CTX* ctx);
     | TLS13-CHACHA20-POLY1305-SHA256 | TLS_CHACHA20_POLY1305_SHA256  | BUILD_TLS_CHACHA20_POLY1305_SHA256 (HAVE_CHACHA + HAVE_POLY1305) |
     | TLS13-AES128-CCM-SHA256      | TLS_AES_128_CCM_SHA256          | BUILD_TLS_AES_128_CCM_SHA256 (HAVE_AESCCM) |
     | TLS13-AES128-CCM-8-SHA256    | TLS_AES_128_CCM_8_SHA256        | BUILD_TLS_AES_128_CCM_8_SHA256 (HAVE_AESCCM) |
-    | TLS13-SM4-GCM-SM3            | TLS_SM4_GCM_SM3                 | BUILD_TLS_SM4_GCM_SM3 (WOLFSSL_SM4_GCM + WOLFSSL_SM3) |
-    | TLS13-SM4-CCM-SM3            | TLS_SM4_CCM_SM3                 | BUILD_TLS_SM4_CCM_SM3 (WOLFSSL_SM4_CCM + WOLFSSL_SM3) |
     | TLS13-SHA256-SHA256          | TLS_SHA256_SHA256               | BUILD_TLS_SHA256_SHA256 (integrity-only) |
     | TLS13-SHA384-SHA384          | TLS_SHA384_SHA384               | BUILD_TLS_SHA384_SHA384 |
 
@@ -4153,7 +4151,6 @@ int  wolfSSL_CTX_get_cert_cache_memsize(WOLFSSL_CTX* ctx);
     | NULL-SHA, NULL-SHA256, NULL-MD5               | HAVE_NULL_CIPHER |
     | PSK-AES128-CBC-SHA256, PSK-AES256-GCM-SHA384, ECDHE-PSK-AES128-CBC-SHA256, DHE-PSK-AES256-GCM-SHA384 | !NO_PSK (HAVE_ECC for ECDHE-PSK, !NO_DH for DHE-PSK) |
     | ADH-AES128-SHA, ADH-AES256-SHA                | HAVE_ANON |
-    | ECDHE-ECDSA-SM4-GCM-SM3, ECDHE-ECDSA-SM4-CCM-SM3 | WOLFSSL_SM2, WOLFSSL_SM3, WOLFSSL_SM4_GCM/WOLFSSL_SM4_CCM |
 
     Notes:
     - TLS 1.3 suite names and TLS 1.2 suite names may be mixed in the same
@@ -15024,8 +15021,7 @@ int  wolfSSL_connect(WOLFSSL* ssl);
     \param [in] secretSz Size of the secret in bytes.
     Passing 0 indicates to use the default size: the digest size of the hash
     the cookie MAC uses, WC_SHA256_DIGEST_SIZE, or when SHA-256 is not
-    available WC_SHA384_DIGEST_SIZE, WC_SHA512_DIGEST_SIZE or
-    WC_SM3_DIGEST_SIZE, in that order.
+    available WC_SHA384_DIGEST_SIZE or WC_SHA512_DIGEST_SIZE, in that order.
 
     \return BAD_FUNC_ARG if ssl is NULL or not using TLS v1.3.
     \return SIDE_ERROR if called with a client.
@@ -15518,7 +15514,6 @@ int  wolfSSL_request_certificate(WOLFSSL* ssl);
     | ED25519           | HAVE_ED25519 (no digest suffix)                    |
     | ED448             | HAVE_ED448   (no digest suffix)                    |
     | DSA               | !NO_DSA                                            |
-    | SM2               | WOLFSSL_SM2 and WOLFSSL_SM3 (digest is SM3)        |
 
     Digest tokens:
 
@@ -15528,7 +15523,6 @@ int  wolfSSL_request_certificate(WOLFSSL* ssl);
     | SHA384  | WOLFSSL_SHA384                                               |
     | SHA512  | WOLFSSL_SHA512                                               |
     | SHA224  | WOLFSSL_SHA224                                               |
-    | SM3     | WOLFSSL_SM3                                                  |
     | SHA1    | !NO_SHA, plus !NO_OLD_TLS or WOLFSSL_ALLOW_TLS_SHA1          |
 
     Notes for TLS 1.3: per RFC 8446, RSA PKCS#1 v1.5, DSA, SHA-1, and SHA-224
@@ -15647,13 +15641,6 @@ int  wolfSSL_set1_sigalgs_list(WOLFSSL* ssl, const char* list);
     | ------ | --------------------- |
     | X25519 | HAVE_CURVE25519       |
     | X448   | HAVE_CURVE448         |
-
-    SM2 (requires WOLFSSL_SM2):
-
-    | Name      | Group           |
-    | --------- | --------------- |
-    | SM2       | sm2p256v1       |
-    | sm2p256v1 | sm2p256v1 (alias) |
 
     ML-KEM (post-quantum) groups (require WOLFSSL_HAVE_MLKEM and
     !WOLFSSL_NO_ML_KEM):
@@ -15856,12 +15843,6 @@ int  wolfSSL_preferred_group(WOLFSSL* ssl);
     | ----------------- | --------------------- |
     | WOLFSSL_ECC_X25519| HAVE_CURVE25519       |
     | WOLFSSL_ECC_X448  | HAVE_CURVE448         |
-
-    SM2 (requires WOLFSSL_SM2):
-
-    | Identifier             | Group     |
-    | ---------------------- | --------- |
-    | WOLFSSL_ECC_SM2P256V1  | sm2p256v1 |
 
     Finite-field DH (RFC 7919) groups (require HAVE_FFDHE and the matching
     HAVE_FFDHE_NNNN macro for each size):

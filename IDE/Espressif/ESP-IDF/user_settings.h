@@ -392,36 +392,14 @@
 #define ATCA_WOLFSSL
 */
 
-/* optional SM4 Ciphers. See https://github.com/wolfSSL/wolfsm
-#define WOLFSSL_SM2
-#define WOLFSSL_SM3
-#define WOLFSSL_SM4
-*/
-
-#if defined(WOLFSSL_SM2) || defined(WOLFSSL_SM3) || defined(WOLFSSL_SM4)
-    #include <wolfssl/certs_test_sm.h>
-    #define CTX_CA_CERT          root_sm2
-    #define CTX_CA_CERT_SIZE     sizeof_root_sm2
-    #define CTX_CA_CERT_TYPE     WOLFSSL_FILETYPE_PEM
-    #define CTX_SERVER_CERT      server_sm2
-    #define CTX_SERVER_CERT_SIZE sizeof_server_sm2
-    #define CTX_SERVER_CERT_TYPE WOLFSSL_FILETYPE_PEM
-    #define CTX_SERVER_KEY       server_sm2_priv
-    #define CTX_SERVER_KEY_SIZE  sizeof_server_sm2_priv
-    #define CTX_SERVER_KEY_TYPE  WOLFSSL_FILETYPE_PEM
-
-    #undef  WOLFSSL_BASE16
-    #define WOLFSSL_BASE16
-#else
-    #define USE_CERT_BUFFERS_2048
-    #define USE_CERT_BUFFERS_256
-    #define CTX_CA_CERT          ca_cert_der_2048
-    #define CTX_CA_CERT_SIZE     sizeof_ca_cert_der_2048
-    #define CTX_CA_CERT_TYPE     WOLFSSL_FILETYPE_ASN1
-    #define CTX_SERVER_CERT      server_cert_der_2048
-    #define CTX_SERVER_CERT_SIZE sizeof_server_cert_der_2048
-    #define CTX_SERVER_CERT_TYPE WOLFSSL_FILETYPE_ASN1
-    #define CTX_SERVER_KEY       server_key_der_2048
-    #define CTX_SERVER_KEY_SIZE  sizeof_server_key_der_2048
-    #define CTX_SERVER_KEY_TYPE  WOLFSSL_FILETYPE_ASN1
-#endif
+#define USE_CERT_BUFFERS_2048
+#define USE_CERT_BUFFERS_256
+#define CTX_CA_CERT          ca_cert_der_2048
+#define CTX_CA_CERT_SIZE     sizeof_ca_cert_der_2048
+#define CTX_CA_CERT_TYPE     WOLFSSL_FILETYPE_ASN1
+#define CTX_SERVER_CERT      server_cert_der_2048
+#define CTX_SERVER_CERT_SIZE sizeof_server_cert_der_2048
+#define CTX_SERVER_CERT_TYPE WOLFSSL_FILETYPE_ASN1
+#define CTX_SERVER_KEY       server_key_der_2048
+#define CTX_SERVER_KEY_SIZE  sizeof_server_key_der_2048
+#define CTX_SERVER_KEY_TYPE  WOLFSSL_FILETYPE_ASN1

@@ -342,7 +342,7 @@ int wc_HKDF_Expand_ex(
     \param saltLen ソルトの長さ。
     \param ikm 入力鍵材料。ikmLenが0の場合はNULLにできます。
     \param ikmLen 入力鍵材料の長さ。0の場合、RFC 8446に従い、空の入力鍵材料ではなくダイジェスト長のゼロ値が使用されます。
-    \param digest HKDFに使用するハッシュタイプ。有効なタイプは：WC_SHA256、WC_SHA384、WC_SHA512、またはWC_SM3。
+    \param digest HKDFに使用するハッシュタイプ。有効なタイプは：WC_SHA256、WC_SHA384、またはWC_SHA512。
 
     _Example_
     \code
@@ -383,7 +383,7 @@ int wc_Tls13_HKDF_Extract(
     \param saltLen ソルトの長さ。
     \param ikm 入力鍵材料。ikmLenが0の場合はNULLにできます。
     \param ikmLen 入力鍵材料の長さ。0の場合、RFC 8446に従い、空の入力鍵材料ではなくダイジェスト長のゼロ値が使用されます。
-    \param digest HKDFに使用するハッシュタイプ。有効なタイプは：WC_SHA256、WC_SHA384、WC_SHA512、またはWC_SM3。
+    \param digest HKDFに使用するハッシュタイプ。有効なタイプは：WC_SHA256、WC_SHA384、またはWC_SHA512。
     \param heap メモリに使用するヒープヒント。NULLにできます。
     \param devId 暗号コールバックまたは非同期ハードウェアで使用するID。使用しない場合はINVALID_DEVID（-2）に設定します。
 

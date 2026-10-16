@@ -4113,15 +4113,15 @@ if(WOLFSSL_FAULTHARDEN)
         )
 endif()
 
-add_option("WOLFSSL_SM3"
-    "Enable wolfSSL SM3 support (default: disabled)"
-    "no" "no;yes;small")
-if(NOT WOLFSSL_SM3 STREQUAL "no")
-    list(APPEND WOLFSSL_DEFINITIONS "-DWOLFSSL_SM3")
-    if(WOLFSSL_SM3 STREQUAL "small")
-        list(APPEND WOLFSSL_DEFINITIONS "-DWOLFSSL_SM3_SMALL")
+foreach(WOLFSSL_REMOVED_SM_OPTION
+        WOLFSSL_SM2 WOLFSSL_SM3 WOLFSSL_SM4 WOLFSSL_SM4_ECB
+        WOLFSSL_SM4_CBC WOLFSSL_SM4_CTR WOLFSSL_SM4_GCM WOLFSSL_SM4_CCM)
+    if(DEFINED ${WOLFSSL_REMOVED_SM_OPTION} AND
+       NOT "${${WOLFSSL_REMOVED_SM_OPTION}}" STREQUAL "no")
+        message(FATAL_ERROR
+            "${WOLFSSL_REMOVED_SM_OPTION} has been removed from wolfSSL")
     endif()
-endif()
+endforeach()
 
 add_option("WOLFSSL_MEMTEST"
     "Memory testing option, for internal use (default: disabled)"
@@ -4422,26 +4422,6 @@ if(NOT WOLFSSL_EARLYDATA STREQUAL "no")
         list(APPEND WOLFSSL_DEFINITIONS "-DWOLFSSL_EARLY_DATA_GROUP")
     endif()
 endif()
-
-# SM2 (requires ECC and external wolfsm sources)
-add_option("WOLFSSL_SM2" "Enable SM2 support, requires external wolfsm sources (default: disabled)" "no" "yes;no")
-if(WOLFSSL_SM2)
-    if(NOT WOLFSSL_ECC)
-        message(FATAL_ERROR "Cannot enable SM2 (WOLFSSL_SM2) without enabling ECC (WOLFSSL_ECC).")
-    endif()
-    list(APPEND WOLFSSL_DEFINITIONS "-DWOLFSSL_SM2" "-DWOLFSSL_BASE16")
-endif()
-
-# SM4 modes (each no/yes/small; require external wolfsm sources)
-foreach(SM4MODE CBC CTR ECB GCM CCM)
-    add_option("WOLFSSL_SM4_${SM4MODE}" "Enable SM4-${SM4MODE}, requires external wolfsm sources (default: disabled)" "no" "no;yes;small")
-    if(NOT WOLFSSL_SM4_${SM4MODE} STREQUAL "no")
-        list(APPEND WOLFSSL_DEFINITIONS "-DWOLFSSL_SM4_${SM4MODE}" "-DWOLFSSL_SM4")
-        if(WOLFSSL_SM4_${SM4MODE} STREQUAL "small")
-            list(APPEND WOLFSSL_DEFINITIONS "-DWOLFSSL_SM4_SMALL")
-        endif()
-    endif()
-endforeach()
 
 # Static memory (no/yes/small/lean/debug)
 add_option("WOLFSSL_STATICMEMORY" "Enable static memory allocation (default: disabled)" "no" "no;yes;small;lean;debug")
@@ -5167,7 +5147,6 @@ if(WOLFSSL_EXAMPLES)
         tests/api/test_sha512.c
         tests/api/test_sha3.c
         tests/api/test_blake2.c
-        tests/api/test_sm3.c
         tests/api/test_ripemd.c
         tests/api/test_hash.c
         tests/api/test_hmac.c
@@ -5191,7 +5170,6 @@ if(WOLFSSL_EXAMPLES)
         tests/api/test_aes.c
         tests/api/test_ascon.c
         tests/api/test_argon2.c
-        tests/api/test_sm4.c
         tests/api/test_wc_encrypt.c
         tests/api/test_coding.c
         tests/api/test_error.c
@@ -5205,7 +5183,6 @@ if(WOLFSSL_EXAMPLES)
         tests/api/test_dsa.c
         tests/api/test_dh.c
         tests/api/test_ecc.c
-        tests/api/test_sm2.c
         tests/api/test_curve25519.c
         tests/api/test_ed25519.c
         tests/api/test_curve448.c

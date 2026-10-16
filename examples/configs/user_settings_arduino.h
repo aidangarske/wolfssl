@@ -562,40 +562,10 @@
  *
  * See Abstract Syntax Notation One (ASN.1) in:
  *   https://github.com/wolfSSL/wolfssl/blob/master/wolfssl/wolfcrypt/asn.h
- *
- * Optional SM4 Ciphers:
- *
- * Although the SM ciphers are shown here, the `certs_test_sm.h` may not yet
- * be available. See:
- *   https://github.com/wolfSSL/wolfssl/pull/6825
- *   https://github.com/wolfSSL/wolfsm
- *
- * Uncomment these 3 macros to enable the SM Ciphers and use the macros below.
  */
 
-/*
-#define WOLFSSL_SM2
-#define WOLFSSL_SM3
-#define WOLFSSL_SM4
-*/
-
 /* Conditional macros used in wolfSSL TLS client and server examples */
-#if defined(WOLFSSL_SM2) || defined(WOLFSSL_SM3) || defined(WOLFSSL_SM4)
-    #include <wolfssl/certs_test_sm.h>
-    #define CTX_CA_CERT          root_sm2
-    #define CTX_CA_CERT_SIZE     sizeof_root_sm2
-    #define CTX_CA_CERT_TYPE     WOLFSSL_FILETYPE_PEM
-    #define CTX_SERVER_CERT      server_sm2
-    #define CTX_SERVER_CERT_SIZE sizeof_server_sm2
-    #define CTX_SERVER_CERT_TYPE WOLFSSL_FILETYPE_PEM
-    #define CTX_SERVER_KEY       server_sm2_priv
-    #define CTX_SERVER_KEY_SIZE  sizeof_server_sm2_priv
-    #define CTX_SERVER_KEY_TYPE  WOLFSSL_FILETYPE_PEM
-
-    #undef  WOLFSSL_BASE16
-    #define WOLFSSL_BASE16
-#else
-    #if defined(USE_CERT_BUFFERS_2048)
+#if defined(USE_CERT_BUFFERS_2048)
         #ifdef USE_CERT_BUFFERS_1024
             #error "USE_CERT_BUFFERS_1024 is already defined. Pick one."
         #endif
@@ -690,7 +660,6 @@
         #define CTX_SERVER_KEY       ecc_key_der_256
         #define CTX_SERVER_KEY_SIZE  sizeof_ecc_key_der_256
         #define CTX_SERVER_KEY_TYPE  WOLFSSL_FILETYPE_ASN1
-    #endif
 #endif
 
 /* Final checks */

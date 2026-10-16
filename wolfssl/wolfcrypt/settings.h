@@ -402,6 +402,16 @@
     #endif
 #endif
 
+#if defined(WOLFSSL_SM2) || defined(WOLFSSL_SP_SM2) || \
+    defined(WOLFSSL_ECC_SM2P256V1) || defined(WOLFSSL_SM3) || \
+    defined(WOLFSSL_SM3_SMALL) || defined(WOLFSSL_ARMASM_CRYPTO_SM3) || \
+    defined(WOLFSSL_SM4) || defined(WOLFSSL_SM4_SMALL) || \
+    defined(WOLFSSL_SM4_ECB) || defined(WOLFSSL_SM4_CBC) || \
+    defined(WOLFSSL_SM4_CTR) || defined(WOLFSSL_SM4_GCM) || \
+    defined(WOLFSSL_SM4_CCM) || defined(WOLFSSL_ARMASM_CRYPTO_SM4)
+    #error "SM2, SM3 and SM4 support has been removed"
+#endif
+
 #if defined(HAVE_FIPS) && \
     (defined(WC_FIPS_LL_CRYPTO) || defined(WOLFSSL_FIPS_DEV_NO_POST)) && \
     !defined(FIPS_NO_WRAPPERS)
@@ -1181,36 +1191,6 @@
             #error "WOLFSSL_SP_RISCV32 can only be used on RISC-V architecture"
         #endif
     #endif
-    #if defined(WOLFSSL_SM2) || defined(WOLFSSL_SM3) || defined(WOLFSSL_SM4)
-        /* SM settings */
-        #undef  WOLFSSL_BASE16
-        #define WOLFSSL_BASE16 /* required for WOLFSSL_SM2 */
-
-        #undef  WOLFSSL_SM4_ECB
-        #define WOLFSSL_SM4_ECB
-
-        #undef  WOLFSSL_SM4_CBC
-        #define WOLFSSL_SM4_CBC
-
-        #undef  WOLFSSL_SM4_CTR
-        #define WOLFSSL_SM4_CTR
-
-        #undef  WOLFSSL_SM4_GCM
-        #define WOLFSSL_SM4_GCM
-
-        #undef  WOLFSSL_SM4_CCM
-        #define WOLFSSL_SM4_CCM
-
-        #undef  HAVE_POLY1305
-        #define HAVE_POLY1305
-
-        #undef  HAVE_CHACHA
-        #define HAVE_CHACHA
-
-        #undef  HAVE_AESGCM
-        #define HAVE_AESGCM
-    #endif /* SM */
-
 #endif /* defined(WOLFSSL_ESP32) || defined(WOLFSSL_ESPWROOM32SE) */
     /* Final device-specific hardware settings. user_settings.h loaded above. */
 
@@ -5901,9 +5881,6 @@ blinding by defining WC_BLINDING_NO_RNG_ACKNOWLEDGE_WEAKNESS."
 /* Dependency Rules (Feature X requires Feature Y) */
 #if defined(WOLFSSL_SHA224) && defined(NO_SHA256)
     #error "SHA-224 (WOLFSSL_SHA224) requires SHA-256"
-#endif
-#if defined(WOLFSSL_SM2) && !defined(HAVE_ECC)
-    #error "SM2 (WOLFSSL_SM2) requires ECC (HAVE_ECC)"
 #endif
 #if defined(HAVE_ECC_BRAINPOOL) && !defined(WOLFSSL_CUSTOM_CURVES)
     #error "Brainpool curves (HAVE_ECC_BRAINPOOL) require WOLFSSL_CUSTOM_CURVES"

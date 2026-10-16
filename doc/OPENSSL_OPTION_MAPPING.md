@@ -149,8 +149,6 @@ for; OpenSSL is the reverse.
 | ChaCha20-Poly1305 | default | on by default | `-DWOLFSSL_CHACHA=yes` |
 | Camellia | default | `--enable-camellia` | `-DWOLFSSL_CAMELLIA=yes` |
 | ARIA | default | `--enable-aria` — **requires the external MagicCrypto SDK** | `-DWOLFSSL_ARIA=yes` |
-| SM4 | default | `--enable-sm4-{ecb,cbc,ctr,gcm,ccm}` — **requires [wolfsm](https://github.com/wolfSSL/wolfsm)** | `-DWOLFSSL_SM4_*=yes` |
-| TLS 1.3 SM suites `TLS_SM4_GCM_SM3`, `TLS_SM4_CCM_SM3`, RFC 8998 — *4.0 only* | default | `--enable-sm2 --enable-sm3 --enable-sm4-gcm` — **requires wolfsm** | — |
 | 3DES (`no-des`) | default | `--enable-des3` | `-DWOLFSSL_DES3=yes` |
 | 3DES TLS cipher suites — need `enable-weak-ssl-ciphers` at build time; stock 3.5 and 4.0 builds offer none at any security level | — | `--enable-des3-tls-suites` | `-DWOLFSSL_DES3_TLS_SUITES=yes` |
 | RC4 (`no-rc4`) | legacy | `--enable-arc4` | `-DWOLFSSL_ARC4=yes` |
@@ -164,7 +162,6 @@ for; OpenSSL is the reverse.
 | MD2 | legacy, and needs `enable-md2` | `--enable-md2` | `-DWOLFSSL_MD2=yes` |
 | RIPEMD-160 (`no-rmd160`) | default **and** legacy — usable without loading legacy, unlike the other legacy digests | `--enable-ripemd` | `-DWOLFSSL_RIPEMD=yes` |
 | BLAKE2b / BLAKE2s (`no-blake2`) | default | `--enable-blake2b`, `--enable-blake2s` | `-DWOLFSSL_BLAKE2=yes`, `-DWOLFSSL_BLAKE2S=yes` |
-| SM3 | default | `--enable-sm3` — **requires wolfsm** | `-DWOLFSSL_SM3=yes` |
 | cSHAKE, SP 800-185 — *4.0 only* | default | `--enable-cshake` | `-DWOLFSSL_CSHAKE=yes` |
 | Whirlpool, MDC2 | legacy | **no equivalent** | — |
 
@@ -208,7 +205,6 @@ for; OpenSSL is the reverse.
 | Binary/`ec2m` curves (`no-ec2m`) | **no equivalent** | — |
 | X25519 / Ed25519 | `--enable-curve25519`, `--enable-ed25519` | `-DWOLFSSL_CURVE25519=yes`, `-DWOLFSSL_ED25519=yes` |
 | X448 / Ed448 | `--enable-curve448`, `--enable-ed448` | `-DWOLFSSL_CURVE448=yes`, `-DWOLFSSL_ED448=yes` |
-| SM2 (4.0 adds `sm2sig_sm3`, `curveSM2` and `curveSM2MLKEM768`, RFC 8998) | `--enable-sm2` — **requires wolfsm** | `-DWOLFSSL_SM2=yes` |
 | ML-KEM — *3.5+* | `--enable-mlkem` | `-DWOLFSSL_MLKEM=yes` |
 | ML-DSA — *3.5+*; 4.0 adds the `ML-DSA-MU` digest | `--enable-mldsa` | `-DWOLFSSL_MLDSA=yes` |
 | SLH-DSA — *3.5+* | `--enable-slhdsa` | `-DWOLFSSL_SLHDSA=yes` |

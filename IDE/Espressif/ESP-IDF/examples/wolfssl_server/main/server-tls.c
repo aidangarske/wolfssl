@@ -164,98 +164,10 @@ WOLFSSL_ESP_TASK tls_smp_server_task(void *args)
 
     /* Create and initialize WOLFSSL_CTX */
     WOLFSSL_MSG("Create and initialize WOLFSSL_CTX");
-#if defined(WOLFSSL_SM2) || defined(WOLFSSL_SM3) || defined(WOLFSSL_SM4)
-    ctx = wolfSSL_CTX_new(wolfSSLv23_server_method());
-    /* ctx = wolfSSL_CTX_new(wolfTLSv1_3_client_method()); for only TLS 1.3 */
-    if (ctx == NULL) {
-        ESP_LOGE(TAG, "ERROR: failed to create WOLFSSL_CTX");
-    }
-#else
     if ((ctx = wolfSSL_CTX_new(wolfSSLv23_server_method())) == NULL) {
         ESP_LOGE(TAG, "ERROR: failed to create WOLFSSL_CTX");
     }
-#endif
 
-#if defined(WOLFSSL_SM2) || defined(WOLFSSL_SM3) || defined(WOLFSSL_SM4)
-    ESP_LOGI(TAG, "Start SM3\n");
-
-    /* Optional set explicit ciphers
-    ret = wolfSSL_CTX_set_cipher_list(ctx, WOLFSSL_ESP32_CIPHER_SUITE);
-    if (ret == SSL_SUCCESS) {
-        ESP_LOGI(TAG, "Set cipher list: "WOLFSSL_ESP32_CIPHER_SUITE"\n");
-    }
-    else {
-        ESP_LOGE(TAG, "ERROR: failed to set cipher list: "WOLFSSL_ESP32_CIPHER_SUITE"\n");
-    }
-    */
-    ShowCiphers(NULL);
-    ESP_LOGI(TAG, "Stack used: %d\n", CONFIG_ESP_MAIN_TASK_STACK_SIZE
-                                      - uxTaskGetStackHighWaterMark(NULL));
-
-    WOLFSSL_MSG("Loading certificate...");
-    /* -c Load server certificates into WOLFSSL_CTX */
-    ret = wolfSSL_CTX_use_certificate_chain_buffer_format(ctx,
-                                                          CTX_SERVER_CERT,
-                                                          CTX_SERVER_CERT_SIZE,
-                                                          CTX_SERVER_CERT_TYPE
-                                                         );
-
-/* optional wolfSSL_CTX_use_certificate_buffer
-    ret = wolfSSL_CTX_use_certificate_buffer(ctx,
-                                             server_sm2,
-                                             sizeof_server_sm2,
-                                             WOLFSSL_FILETYPE_PEM);
-*/
-    if (ret == SSL_SUCCESS) {
-        ESP_LOGI(TAG, "Loaded server_sm2\n");
-    }
-    else {
-        ESP_LOGE(TAG, "ERROR: failed to load cert\n");
-    }
-    ESP_LOGI(TAG, "Stack used: %d\n", CONFIG_ESP_MAIN_TASK_STACK_SIZE
-                                      - uxTaskGetStackHighWaterMark(NULL));
-
-#ifndef NO_DH
-    #define DEFAULT_MIN_DHKEY_BITS 1024
-    #define DEFAULT_MAX_DHKEY_BITS 2048
-    int    minDhKeyBits  = DEFAULT_MIN_DHKEY_BITS;
-    ret = wolfSSL_CTX_SetMinDhKey_Sz(ctx, (word16)minDhKeyBits);
-#endif
-#ifndef NO_RSA
-    #define DEFAULT_MIN_RSAKEY_BITS 1024
-    short  minRsaKeyBits = DEFAULT_MIN_RSAKEY_BITS;
-    ret = wolfSSL_CTX_SetMinRsaKey_Sz(ctx, minRsaKeyBits);
-#endif
-
-    WOLFSSL_MSG("Loading key info...");
-    /* -k Load server key into WOLFSSL_CTX */
-    ret = wolfSSL_CTX_use_PrivateKey_buffer(ctx,
-                                            CTX_SERVER_KEY,
-                                            CTX_SERVER_KEY_SIZE,
-                                            CTX_SERVER_KEY_TYPE);
-
-    if (ret == SSL_SUCCESS) {
-        ESP_LOGI(TAG, "Loaded PrivateKey_buffer server_sm2_priv\n");
-    }
-    else {
-        ESP_LOGE(TAG, "ERROR: failed to load "
-                      "PrivateKey_buffer server_sm2_priv\n");
-    }
-    ESP_LOGI(TAG, "Stack used: %d\n", CONFIG_ESP_MAIN_TASK_STACK_SIZE
-                                      - uxTaskGetStackHighWaterMark(NULL));
-    /* -A load authority */
-    ret = wolfSSL_CTX_load_verify_buffer(ctx,
-                                         client_sm2,
-                                         sizeof_client_sm2,
-                                         WOLFSSL_FILETYPE_PEM);
-    if (ret == SSL_SUCCESS) {
-        ESP_LOGI(TAG, "Success: load verify buffer\n");
-    }
-    else {
-        ESP_LOGE(TAG, "ERROR: failed to load verify buffer\n");
-    }
-    ESP_LOGI(TAG, "Finish SM2\n");
-#else
     WOLFSSL_MSG("Loading certificate...");
     /* Load server certificates into WOLFSSL_CTX */
 
@@ -272,10 +184,6 @@ WOLFSSL_ESP_TASK tls_smp_server_task(void *args)
                             WOLFSSL_FILETYPE_ASN1)) != SSL_SUCCESS) {
         ESP_LOGE(TAG, "ERROR: failed to load privatekey");
     }
-
-#endif
-
-
     /* TODO when using ECDSA,it loads the provisioned certificate and present it.
        TODO when using ECDSA,it uses the generated key instead of loading key  */
 

@@ -852,14 +852,6 @@ else()
         "\"${WOLFSSL_ROOT}/wolfssl/wolfcrypt/ext_kyber.h\"" # external non-wolfssl Kyber disabled by default
         "\"${WOLFSSL_ROOT}/wolfcrypt/src/evp.c\""
         "\"${WOLFSSL_ROOT}/wolfcrypt/src/misc.c\""
-        "\"${WOLFSSL_ROOT}/wolfcrypt/src/sp_sm2_arm32.c\""
-        "\"${WOLFSSL_ROOT}/wolfcrypt/src/sp_sm2_arm64.c\""
-        "\"${WOLFSSL_ROOT}/wolfcrypt/src/sp_sm2_armthumb.c\""
-        "\"${WOLFSSL_ROOT}/wolfcrypt/src/sp_sm2_c32.c\""
-        "\"${WOLFSSL_ROOT}/wolfcrypt/src/sp_sm2_c64.c\""
-        "\"${WOLFSSL_ROOT}/wolfcrypt/src/sp_sm2_cortexm.c\""
-        "\"${WOLFSSL_ROOT}/wolfcrypt/src/sp_sm2_x86_64.c\""
-        "\"${WOLFSSL_ROOT}/wolfcrypt/src/sp_sm2_x86_64_asm.S\""
         "\"${WOLFSSL_ROOT}/examples\"" # Examples are distributed in Managed Components, but not part of a project.
         "\"${EXCLUDE_ASM}\""
         )

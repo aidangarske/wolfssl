@@ -445,7 +445,7 @@ int wc_HKDF_Expand_ex(
     \param ikmLen  length of the input keying material. 0 substitutes a digest
     length zeroed IKM per RFC 8446, not an empty IKM
     \param digest  hash type to use for the HKDF. Valid types are: WC_SHA256,
-    WC_SHA384, WC_SHA512 or WC_SM3
+    WC_SHA384 or WC_SHA512
 
     _Example_
     \code
@@ -499,7 +499,7 @@ int wc_Tls13_HKDF_Extract(
     \param ikmLen  Length of the input keying material. 0 substitutes a digest
     length zeroed IKM per RFC 8446, not an empty IKM
     \param digest  Hash type to use for the HKDF. Valid types are: WC_SHA256,
-    WC_SHA384, WC_SHA512 or WC_SM3
+    WC_SHA384 or WC_SHA512
     \param heap    Heap hint to use for memory. Can be NULL
     \param devId   ID to use with crypto callbacks or async hardware. Set to INVALID_DEVID (-2) if not used
 

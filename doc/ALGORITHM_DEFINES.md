@@ -193,7 +193,6 @@ your primary suite on such targets.
 | Define | Algorithm | Notes |
 | --- | --- | --- |
 | `HAVE_CAMELLIA` | Camellia | |
-| `WOLFSSL_SM4` | SM4. Each mode is selected individually with `WOLFSSL_SM4_ECB`, `_CBC`, `_CTR`, `_GCM` or `_CCM`, from `--enable-sm4-ecb` and so on | Chinese national standard |
 | `HAVE_ARIA` | ARIA | Needs a third-party `MagicCrypto` source drop |
 | `HAVE_ASCON` | ASCON | NIST lightweight standard |
 | `NO_DES3` | *removes* 3DES | On by default; obsolete, remove it |
@@ -215,7 +214,6 @@ your primary suite on such targets.
 | `WOLFSSL_NOSHA512_224` / `WOLFSSL_NOSHA512_256` | *remove* SHA-512/224 and SHA-512/256, which come with SHA-512 | on |
 | `WOLFSSL_SHA3` | SHA-3 (all four sizes) | off |
 | `WOLFSSL_SHAKE128` / `WOLFSSL_SHAKE256` | SHAKE XOFs | off |
-| `WOLFSSL_SM3` | SM3 | off |
 | `HAVE_BLAKE2B` / `HAVE_BLAKE2S` | BLAKE2 | off |
 | `WOLFSSL_RIPEMD` | RIPEMD-160 | off |
 
@@ -399,7 +397,6 @@ including the two that are side-channel protections. Define them explicitly:
 
 | Define | Algorithm | `./configure` |
 | --- | --- | --- |
-| `WOLFSSL_SM2` | SM2 signatures and key exchange. Also pulls in `WOLFSSL_BASE16`. Pair with `WOLFSSL_SM3` and `WOLFSSL_SM4` for the full Chinese suite, and with `WOLFSSL_SP_SM2` for the specialised curve implementation | `--enable-sm2` |
 | `WOLFCRYPT_HAVE_ECCSI` | ECCSI (RFC 6507), identity-based signatures | `--enable-eccsi` |
 | `WOLFCRYPT_HAVE_SAKKE` | SAKKE (RFC 6508), identity-based key encapsulation. Uses the 1024-bit SP support, so pair it with `WOLFSSL_SP_1024` | `--enable-sakke` |
 | `WOLFCRYPT_SAKKE_SMALL` | Smaller, slower SAKKE | `--enable-sakke=small` |

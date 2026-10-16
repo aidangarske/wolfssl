@@ -45,9 +45,6 @@
 #endif
 #ifdef HAVE_ECC
     #include <wolfssl/wolfcrypt/ecc.h>   /* wc_ecc_fp_free */
-    #ifdef WOLFSSL_SM2
-        #include <wolfssl/wolfcrypt/sm2.h>
-    #endif
 #endif
 #ifndef NO_ASN
     #include <wolfssl/wolfcrypt/asn_public.h>
@@ -211,7 +208,6 @@
 #include <tests/api/test_sha512.h>
 #include <tests/api/test_sha3.h>
 #include <tests/api/test_blake2.h>
-#include <tests/api/test_sm3.h>
 #include <tests/api/test_ripemd.h>
 #include <tests/api/test_hash.h>
 #include <tests/api/test_hmac.h>
@@ -235,7 +231,6 @@
 #include <tests/api/test_aes.h>
 #include <tests/api/test_ascon.h>
 #include <tests/api/test_argon2.h>
-#include <tests/api/test_sm4.h>
 #include <tests/api/test_wc_encrypt.h>
 #include <tests/api/test_coding.h>
 #include <tests/api/test_error.h>
@@ -249,7 +244,6 @@
 #include <tests/api/test_dsa.h>
 #include <tests/api/test_dh.h>
 #include <tests/api/test_ecc.h>
-#include <tests/api/test_sm2.h>
 #include <tests/api/test_curve25519.h>
 #include <tests/api/test_ed25519.h>
 #include <tests/api/test_curve448.h>
@@ -44873,8 +44867,6 @@ TEST_CASE testCases[] = {
     /* test_blake.c */
     TEST_BLAKE2B_DECLS,
     TEST_BLAKE2S_DECLS,
-    /* test_sm3.c: SM3 Digest */
-    TEST_SM3_DECLS,
     /* test_ripemd.c */
     TEST_RIPEMD_DECLS,
     /* test_hash.c */
@@ -44938,7 +44930,6 @@ TEST_CASE testCases[] = {
     TEST_ASCON_DECLS,
     TEST_ARGON2_DECLS,
     /* SM4 cipher */
-    TEST_SM4_DECLS,
     /* wc_encrypt API */
     TEST_WC_ENCRYPT_DECLS,
     /* wolfCrypt coding (Base64/Base16) */
@@ -44965,7 +44956,6 @@ TEST_CASE testCases[] = {
     /* wolfCrypt ECC tests */
     TEST_ECC_DECLS,
     /* SM2 elliptic curve */
-    TEST_SM2_DECLS,
     /* Curve25519 */
     TEST_CURVE25519_DECLS,
     /* ED25519 */

@@ -49,7 +49,7 @@ independently, and enabling some but not others is perfectly normal.
 | --- | --- | --- | --- |
 | **A. Math back end** | Which multi-precision integer implementation is compiled at all | `WOLFSSL_SP_MATH_ALL`, `WOLFSSL_SP_MATH`, `USE_FAST_MATH`, `USE_INTEGER_HEAP_MATH` | `sp_int.c`, `tfm.c`, `integer.c` |
 | **B. SP big-number acceleration** | RSA, DH, ECC, and generic `mp_*` operations | `WOLFSSL_SP_<arch>` (inline) and `WOLFSSL_SP_<arch>_ASM` (specialised) | `sp_int.c`, `sp_<arch>.c` (plus `sp_x86_64_asm.S` on x86_64 — see § 5) |
-| **C. Per-algorithm assembly** | AES, SHA-2, SHA-3, ChaCha20, Poly1305, X25519, ML-KEM, ML-DSA, SM3/SM4 | `WOLFSSL_AESNI`, `USE_INTEL_SPEEDUP`, `WOLFSSL_ARMASM`, `WOLFSSL_RISCV_ASM`, `WOLFSSL_PPC32_ASM`, `WOLFSSL_PPC64_ASM` | `*_asm.S`, `port/<arch>/*` |
+| **C. Per-algorithm assembly** | AES, SHA-2, SHA-3, ChaCha20, Poly1305, X25519, ML-KEM, ML-DSA | `WOLFSSL_AESNI`, `USE_INTEL_SPEEDUP`, `WOLFSSL_ARMASM`, `WOLFSSL_RISCV_ASM`, `WOLFSSL_PPC32_ASM`, `WOLFSSL_PPC64_ASM` | `*_asm.S`, `port/<arch>/*` |
 
 Axis B has two tiers. The distinction matters when you are choosing what to
 enable, so it is worth reading before you pick your defines:
@@ -63,7 +63,7 @@ enable, so it is worth reading before you pick your defines:
   `sp_<arch>.c`. Only x86_64 adds a separate `sp_x86_64_asm.S`; the ARM and
   RISC-V files carry their assembly inline (§ 5). Much faster, but
   only for the specific key sizes and curves compiled in (RSA/DH 2048/3072/4096,
-  P-256/P-384/P-521, SM2, SAKKE). Only available for x86_64, Aarch64, ARM32,
+  P-256/P-384/P-521, SAKKE). Only available for x86_64, Aarch64, ARM32,
   ARM Thumb, Cortex-M and RISC-V 64.
 
 Defining any `WOLFSSL_SP_<arch>_ASM` implies `WOLFSSL_SP_ASM`. You will normally
@@ -330,7 +330,6 @@ RSA/DH 2048 and 3072 and ECC P-256 are **on by default** once the corresponding
 | `WOLFSSL_SP_NO_256` | Drop ECC P-256 |
 | `WOLFSSL_SP_384` | Add ECC P-384 (pair with `HAVE_ECC384`) |
 | `WOLFSSL_SP_521` | Add ECC P-521 (pair with `HAVE_ECC521`) |
-| `WOLFSSL_SP_SM2` | Add SM2 (`sp_sm2_*.c`) |
 | `WOLFSSL_SP_1024` | Add 1024-bit for SAKKE |
 
 Each size costs code space, so on a constrained target enable only the sizes
@@ -399,7 +398,7 @@ rather than the public key math.
 | Define | Effect | `./configure` |
 | --- | --- | --- |
 | `WOLFSSL_AESNI` | AES-NI for AES-CBC/ECB/CTR, key expansion, GCM, XTS | `--enable-aesni` |
-| `USE_INTEL_SPEEDUP` | **All** Intel speedups: AES-NI plus AVX/AVX2 SHA-2, SHA-3, ChaCha20, Poly1305, X25519, ML-KEM, ML-DSA, FrodoKEM, SM3 | `--enable-intelasm` |
+| `USE_INTEL_SPEEDUP` | **All** Intel speedups: AES-NI plus AVX/AVX2 SHA-2, SHA-3, ChaCha20, Poly1305, X25519, ML-KEM, ML-DSA, FrodoKEM | `--enable-intelasm` |
 | `USE_INTEL_SPEEDUP_FOR_AES` | AVX acceleration for AES only | `--enable-aesni-with-avx` |
 | `AES_GCM_AESNI_NO_UNROLL` | Smaller AES-GCM assembly | `--enable-aesni=small` |
 | `HAVE_INTEL_AVX1` / `HAVE_INTEL_AVX2` | Select instruction set. Auto-defined by the x86_64 SP defines; `NO_AVX2_SUPPORT` suppresses AVX2. | — |
@@ -426,7 +425,6 @@ kernel-module builds, `WC_C_DYNAMIC_FALLBACK` keeps a C path available.
 | `WOLFSSL_ARM_ARCH=<n>` | Architecture level: `4`, `6`, `7`… Gates instruction availability. |
 | `WOLFSSL_AARCH64_BUILD` | Aarch64 target |
 | `WOLFSSL_ARMASM_CRYPTO_SHA512` and `WOLFSSL_ARMASM_CRYPTO_SHA3` | Use the Aarch64 SHA-512 / SHA-3 instructions (ARMv8.2+). `./configure` sets the pair together from `--enable-armasm=sha512-crypto` or `sha3-crypto`. |
-| `WOLFSSL_ARMASM_CRYPTO_SM3` / `_SM4` | Use the Aarch64 SM3 / SM4 instructions |
 | `WOLFSSL_ARMASM_SHA256_SMALL` | Smaller 32-bit ARM SHA-256 |
 | `WOLFSSL_ARMASM_AES_BLOCK_INLINE` | 32-bit ARM AES block-function inlining |
 | `WOLFSSL_ARMASM_BARRIER_SB` / `_BARRIER_DETECT` | Use the `SB` speculation barrier (ARMv8.5+) / detect it at run time |
@@ -477,7 +475,6 @@ changes with the architecture version is the instruction groups you can add:
 | --- | --- | --- | --- |
 | ARMv8-A | Cortex-A53, A57, A72, A73 | nothing beyond the base set | `-mcpu=generic+crypto` |
 | ARMv8.2-A and later | Cortex-A55, A75, A76, A78, Neoverse N1 | `WOLFSSL_ARMASM_CRYPTO_SHA512` and `WOLFSSL_ARMASM_CRYPTO_SHA3`, which `./configure` sets as a pair | `-march=armv8.2-a+crypto+sha3` |
-| ARMv8.2-A with the SM extensions | cores implementing FEAT_SM3 / FEAT_SM4 | `WOLFSSL_ARMASM_CRYPTO_SM3`, `WOLFSSL_ARMASM_CRYPTO_SM4` | `-march=armv8.2-a+crypto+sm4` — one `+sm4` covers both |
 | ARMv8.5-A and later | Cortex-A710, Neoverse V2 | `WOLFSSL_ARMASM_BARRIER_SB`, or `WOLFSSL_ARMASM_BARRIER_DETECT` to test for it at run time | `-march=armv8.5-a`, which you supply yourself |
 | SVE or SME capable | Neoverse V1/V2 and later, Apple M4 | `WOLFSSL_FRODOKEM_SVE`, `WOLFSSL_FRODOKEM_SME` for FrodoKEM matrix work; both are selected at run time | `-march=armv9-a+sve`, which you supply yourself |
 | Apple silicon | M1 to M4 | SHA-512 and SHA-3 instructions are enabled by default on Darwin | — |
